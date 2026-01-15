@@ -1,42 +1,37 @@
 defmodule CopyTrade.FollowerWorker do
   use GenServer
   require Logger
+  # เรียกใช้ Module History ที่เราเพิ่งสร้าง
   alias CopyTrade.History
 
+  # --- Client API ---
   def start_link(args) do
-    # ลงทะเบียนชื่อ Process ตาม User ID
     name = {:via, Registry, {CopyTrade.FollowerRegistry, args[:user_id]}}
     GenServer.start_link(__MODULE__, args, name: name)
   end
 
+  # --- Server Callbacks ---
+  @impl true
   def init(state) do
     Logger.info("✅ Follower #{state[:user_id]} Online!")
     Phoenix.PubSub.subscribe(CopyTrade.PubSub, "gold_signals")
     {:ok, state}
   end
 
+  @impl true
   def handle_info({:trade_signal, signal}, state) do
-    # Log จังหวะที่ 1: รับทราบคำสั่ง (อยู่ใน Process หลัก เร็วมาก)
-    Logger.debug("🔔 [#{state[:user_id]}] Received signal, spawning task...")
+    # Log รับทราบ (Debug)
+    Logger.debug("🔔 [#{state[:user_id]}] Signal Received: #{signal.action}")
 
-    # จำลองการเทรดแบบไม่บล็อก (Async)
     Task.start(fn ->
-      # --- เข้าสู่โลกของ Task (Async) ---
-
-      # การ set metadata ช่วยให้ทุก log ใน task นี้มี user_id ติดไปด้วยอัตโนมัติ (ท่าโปร)
-      Logger.metadata(user_id: state[:user_id])
-
       start_time = System.monotonic_time()
 
-      # Log จังหวะที่ 2: เริ่มยิง (Start)
-      Logger.info("🚀 Executing #{signal.action} #{signal.symbol}...")
-
-      # เรียกฟังก์ชันยิง API
+      # 1. ยิงคำสั่งเทรด (เรียกฟังก์ชันข้างล่าง)
       result = execute_trade(state[:user_id], signal)
 
-      # คำนวณเวลาที่ใช้ไป
+      # 2. คำนวณเวลาที่ใช้
       duration = System.monotonic_time() - start_time
-      duration_ms = System.convert_time_unit(duration, :native, :millisecond)
+      ms = System.convert_time_unit(duration, :native, :millisecond)
 
       # เตรียมข้อมูลพื้นฐาน
       base_attrs = %{
@@ -44,25 +39,25 @@ defmodule CopyTrade.FollowerWorker do
         symbol: signal.symbol,
         action: signal.action,
         volume: 0.01,
-        execution_time_ms: duration_ms
+        execution_time_ms: ms
       }
 
-      # Log จังหวะที่ 3: สรุปผล (Finish)
+      # 3. ตรวจสอบผลลัพธ์และบันทึกลง Database
       case result do
         {:ok, response} ->
-          Logger.info("✅ Trade Success! Ticket: #{response["ticket"]} (Time: #{duration_ms}ms)")
+          Logger.info("✅ [#{state[:user_id]}] Success Ticket: #{response["ticket"]} (#{ms}ms)")
 
-          # 👇 บันทึกลง DB: Success
+          # บันทึกความสำเร็จลง DB
           History.create_log(Map.merge(base_attrs, %{
             status: "SUCCESS",
-            ticket: response["ticket"], # เก็บ Ticket ไว้ปิดออเดอร์ทีหลัง
+            ticket: response["ticket"],
             price: response["price"]
           }))
 
         {:error, reason} ->
-          Logger.error("❌ Trade Failed! Reason: #{inspect(reason)} (Time: #{duration_ms}ms)")
+          Logger.error("❌ [#{state[:user_id]}] Failed: #{inspect(reason)}")
 
-          # 👇 บันทึกลง DB: Failed (เอาไว้ Audit ว่าทำไมพัง)
+          # บันทึกความล้มเหลวลง DB
           History.create_log(Map.merge(base_attrs, %{
             status: "FAILED",
             ticket: 0,
@@ -70,32 +65,31 @@ defmodule CopyTrade.FollowerWorker do
           }))
       end
     end)
+
     {:noreply, state}
   end
 
+  # --- Private Functions ---
   defp execute_trade(user_id, signal) do
-    # URL ของ Python Server ที่เราจะสร้างในอนาคต
-    url = "http://127.0.0.1:5000/trade"
+    # URL ของ Python Gateway (ปรับตามเครื่องคุณ)
+    url = "http://localhost:5000/trade"
 
     body = %{
       user_id: user_id,
       symbol: signal.symbol,
       action: signal.action,
-      volume: 0.01 # สมมติว่า Fixed lot
+      volume: 0.01
     }
 
-    # ยิง Request!
+    # ใช้ Library Req ยิง POST
     case Req.post(url, json: body) do
       {:ok, %{status: 200, body: response}} ->
-        Logger.info("✅ [#{user_id}] Order Executed Successfully!")
-        {:ok, response}
+        {:ok, response} # ส่งข้อมูลกลับไปให้ handle_info
 
       {:ok, %{status: code, body: response}} ->
-        Logger.error("❌ [#{user_id}] Failed with status #{code}")
         {:error, "Status #{code}: #{inspect(response)}"}
 
       {:error, reason} ->
-        Logger.error("⚠️ [#{user_id}] Network Error: #{inspect(reason)}")
         {:error, reason}
     end
   end

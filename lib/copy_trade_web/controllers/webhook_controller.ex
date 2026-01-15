@@ -2,28 +2,24 @@ defmodule CopyTradeWeb.WebhookController do
   use CopyTradeWeb, :controller
   require Logger
 
-  # ปิดการเช็ค CSRF Token สำหรับ API (เพราะ MT5 ไม่มี Token นี้)
   plug :accepts, ["json"]
 
   def create(conn, params) do
-    # params คือ JSON ที่ Master ส่งมา
-    # หน้าตาประมาณ: %{"symbol" => "XAUUSD", "action" => "BUY", "price" => 2050.0}
+    # รับ JSON จาก Master
+    Logger.info("📩 Webhook: #{inspect(params)}")
 
-    Logger.info("📩 Received Webhook from Master: #{inspect(params)}")
-
-    # แปลงข้อมูลให้ตรงกับ format ที่ Worker เราใช้
+    # แปลงข้อมูล
     signal = %{
       symbol: params["symbol"],
-      action: String.upcase(params["action"]), # มั่นใจว่าเป็นตัวใหญ่
+      action: String.upcase(params["action"]),
       price: params["price"]
     }
 
-    # 🔥 จุดสำคัญ: Broadcast เข้า PubSub เหมือนตอนเรากดปุ่มหน้า Admin เป๊ะ!
+    # กระจายข่าวเข้า PubSub (Worker จะได้รับตรงนี้)
     Phoenix.PubSub.broadcast(CopyTrade.PubSub, "gold_signals", {:trade_signal, signal})
 
-    # ตอบกลับ Master ว่า "ได้รับแล้วจ้า"
     conn
     |> put_status(:ok)
-    |> json(%{status: "ok", message: "Signal Broadcasted"})
+    |> json(%{status: "ok"})
   end
 end

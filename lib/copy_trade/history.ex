@@ -2,7 +2,7 @@ defmodule CopyTrade.History do
   import Ecto.Changeset
   alias CopyTrade.{Repo, TradeHistory}
 
-  # ฟังก์ชันสำหรับบันทึกผลการเทรด
+  # ฟังก์ชันสำหรับบันทึกผลการเทรดลง DB
   def create_log(attrs) do
     %TradeHistory{}
     |> cast(attrs, [:user_id, :symbol, :action, :price, :volume, :ticket, :status, :execution_time_ms])

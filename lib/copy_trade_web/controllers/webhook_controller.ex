@@ -5,21 +5,22 @@ defmodule CopyTradeWeb.WebhookController do
   plug :accepts, ["json"]
 
   def create(conn, params) do
-    # รับ JSON จาก Master
-    Logger.info("📩 Webhook: #{inspect(params)}")
+    Logger.info("📩 Webhook V2: #{inspect(params)}")
 
-    # แปลงข้อมูล
+    # แปลงข้อมูลเป็น Signal Struct ที่ชัดเจน
     signal = %{
       symbol: params["symbol"],
-      action: String.upcase(params["action"]),
+      action: params["action"], # "OPEN_BUY", "OPEN_SELL", "CLOSE"
+      master_ticket: params["ticket"], # 🔥 ของใหม่
+      volume: params["volume"],        # 🔥 ของใหม่
       price: params["price"]
     }
 
-    # กระจายข่าวเข้า PubSub (Worker จะได้รับตรงนี้)
+    # Broadcast เข้า PubSub
     Phoenix.PubSub.broadcast(CopyTrade.PubSub, "gold_signals", {:trade_signal, signal})
 
     conn
     |> put_status(:ok)
-    |> json(%{status: "ok"})
+    |> json(%{status: "received"})
   end
 end

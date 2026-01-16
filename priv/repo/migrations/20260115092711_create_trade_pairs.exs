@@ -14,8 +14,8 @@ defmodule CopyTrade.Repo.Migrations.CreateTradePairs do
 
       timestamps(type: :utc_datetime)
     end
-  end
 
-  # 🔥 สำคัญมาก: ห้าม User คนเดิม เปิด Master Ticket เดิมซ้ำ
-  create unique_index(:trade_pairs, [:user_id, :master_ticket])
+    # 🔥 สำคัญมาก: ห้าม User คนเดิม เปิด Master Ticket เดิมซ้ำ
+    create unique_index(:trade_pairs, [:user_id, :master_ticket])
+  end
 end

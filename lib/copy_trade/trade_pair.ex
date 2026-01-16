@@ -19,6 +19,8 @@ defmodule CopyTrade.TradePair do
   def changeset(trade_pair, attrs) do
     trade_pair
     |> cast(attrs, [:user_id, :master_ticket, :slave_ticket, :symbol, :status, :open_price, :close_price, :profit])
-    |> validate_required([:user_id, :master_ticket, :slave_ticket, :symbol, :status, :open_price, :close_price, :profit])
+    |> validate_required([:user_id, :master_ticket, :slave_ticket, :symbol, :status, :open_price])
+    # สำคัญ: เช็ค Unique Constraint ตรงนี้ด้วย เพื่อจับ Error ถ้าข้อมูลซ้ำ
+    |> unique_constraint([:user_id, :master_ticket])
   end
 end

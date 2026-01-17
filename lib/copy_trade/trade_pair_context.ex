@@ -38,4 +38,19 @@ defmodule CopyTrade.TradePairContext do
         |> Repo.update()
     end
   end
+
+  # ฟังก์ชันสำหรับอัปเดต ticket หลังเปิดสำเร็จ
+  def update_slave_ticket(user_id, master_ticket, slave_ticket) do
+    TradePair
+    |> Repo.get_by(user_id: user_id, master_ticket: master_ticket, status: "PENDING")
+    |> case do
+      nil ->
+        # อาจจะเกิด Race Condition หรือหาไม่เจอ
+        nil
+      pair ->
+        pair
+        |> Ecto.Changeset.change(%{slave_ticket: slave_ticket, status: "OPEN"})
+        |> Repo.update()
+    end
+  end
 end

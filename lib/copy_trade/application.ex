@@ -18,8 +18,14 @@ defmodule CopyTrade.Application do
 
       # 1. สมุดทะเบียน
       {Registry, keys: :unique, name: CopyTrade.FollowerRegistry},
-      
-      # 2. ผู้จัดการคนงาน
+
+      # 🔥 2. เพิ่ม Registry ใหม่ (สำหรับ Socket Connection)
+      {Registry, keys: :unique, name: CopyTrade.SocketRegistry},
+
+      # 3. เพิ่ม TCP Server ที่เรากำลังจะสร้าง
+      {CopyTrade.TCPServer, port: 5001},
+
+      # 4. ผู้จัดการคนงาน
       CopyTrade.FollowerSupervisor,
 
       CopyTradeWeb.Endpoint

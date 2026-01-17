@@ -35,49 +35,50 @@ defmodule CopyTrade.FollowerWorker do
   # 🟢 LOGIC 1: การเปิดออเดอร์ (OPEN_BUY, OPEN_SELL)
   # ------------------------------------------------------------------
   defp process_signal(%{action: "OPEN_" <> type} = signal, state) do
-    # 1. กันซ้ำ: เช็คว่าเคยเปิด Master Ticket นี้ไปหรือยัง?
+    # 1. กันซ้ำ
     if TradePairContext.exists?(state.user_id, signal.master_ticket) do
       Logger.warning("⚠️ [#{state.user_id}] Duplicate Signal Ignored: #{signal.master_ticket}")
     else
       # 2. คำนวณ Lot Size
       lot = Float.round(signal.volume * state.multiplier, 2)
-      lot = max(lot, 0.01) # ขั้นต่ำ 0.01
+      lot = max(lot, 0.01)
 
-      # 3. เตรียม Payload (แปลง OPEN_BUY -> BUY)
-      payload = %{
-        action: type, # "BUY" หรือ "SELL"
+      # -------------------------------------------------------
+      # 🔥 จุดเปลี่ยนสำคัญ: บันทึก DB ก่อนส่ง TCP (Async Pattern)
+      # -------------------------------------------------------
+
+      # 3. สร้างข้อมูลเพื่อเตรียมบันทึก (PENDING)
+      # slave_ticket ใส่ 0 ไปก่อน เพราะเรายังไม่รู้
+      db_params = %{
+        user_id: state.user_id,
+        master_ticket: signal.master_ticket,
+        slave_ticket: 0,         # <--- Placeholder
         symbol: signal.symbol,
-        volume: lot,
-        magic: 123456 # ใส่ Magic Number
+        status: "PENDING",       # <--- สถานะรอการตอบกลับ
+        open_price: signal.price
       }
 
-      # 4. ยิง API
-      case execute_api(payload) do
-        {:ok, response} ->
-          slave_ticket = response["ticket"]
-          Logger.info("✅ [#{state.user_id}] OPEN #{type} Ticket: #{slave_ticket}")
+      # 4. บันทึกลง Database ทันที
+      case TradePairContext.create_pair(db_params) do
+        {:ok, _pair} ->
+          Logger.info("💾 [#{state.user_id}] Saved PENDING pair for Master: #{signal.master_ticket}")
 
-          # 5. บันทึกจับคู่ (สำคัญมาก!)
-          db_result = TradePairContext.create_pair(%{
+          # 5. เตรียม Payload ส่ง TCP
+          # ต้องแนบ master_ticket ไปด้วย เพื่อให้ EA ส่งกลับมาถูกคู่
+          payload = %{
+            action: type,     # "BUY" หรือ "SELL"
             user_id: state.user_id,
-            master_ticket: signal.master_ticket,
-            slave_ticket: slave_ticket,
             symbol: signal.symbol,
-            status: "OPEN",
-            open_price: response["price"]
-          })
+            volume: lot,
+            magic: 123456,
+            master_ticket: signal.master_ticket # 🔥 สำคัญมาก ต้องส่งตัวนี้ไปด้วย
+          }
 
-          case db_result do
-            {:ok, _pair} ->
-              Logger.info("💾 Saved TradePair for Master Ticket: #{signal.master_ticket}")
+          # 6. ยิง TCP (Fire-and-forget)
+          execute_tcp(payload)
 
-            {:error, changeset} ->
-              # 🚨 จุดนี้จะบอกเราว่าทำไมบันทึกไม่ได้!
-              Logger.error("❌ DB Insert Failed: #{inspect(changeset.errors)}")
-          end
-
-        {:error, reason} ->
-          Logger.error("❌ [#{state.user_id}] Open Failed: #{inspect(reason)}")
+        {:error, changeset} ->
+          Logger.error("❌ DB Insert Failed: #{inspect(changeset.errors)}")
       end
     end
   end
@@ -86,41 +87,61 @@ defmodule CopyTrade.FollowerWorker do
   # 🔴 LOGIC 2: การปิดออเดอร์ (CLOSE)
   # ------------------------------------------------------------------
   defp process_signal(%{action: "CLOSE"} = signal, state) do
-    # 1. ค้นหาว่า Master Ticket นี้ ตรงกับ Slave Ticket เลขอะไร?
+    # 1. ค้นหา Slave Ticket
     case TradePairContext.get_slave_ticket(state.user_id, signal.master_ticket) do
       nil ->
         Logger.error("⚠️ [#{state.user_id}] Order Not Found for Master Ticket: #{signal.master_ticket}")
 
       slave_ticket ->
-        # 2. สั่งปิดออเดอร์
+        # 2. เตรียม Payload
+        # 🔥 เพิ่ม master_ticket ไปด้วย (เพื่อใช้เป็น Reference ตอน EA ส่งกลับ)
         payload = %{
           action: "CLOSE",
+          user_id: state.user_id,
           ticket: slave_ticket,
-          symbol: signal.symbol
+          symbol: signal.symbol,
+          master_ticket: signal.master_ticket
         }
 
-        case execute_api(payload) do
-          {:ok, response} ->
-            Logger.info("✂️ [#{state.user_id}] CLOSED Ticket: #{slave_ticket}")
+        # 3. ยิง TCP (Fire-and-forget)
+        execute_tcp(payload)
 
-            profit = response["profit"] || 0.0 # กันเหนียวถ้าไม่มีค่าส่งมา
-
-            # 3. อัปเดต DB ว่าปิดแล้ว
-            TradePairContext.mark_as_closed(state.user_id, signal.master_ticket, response["price"], profit)
-
-          {:error, reason} ->
-            Logger.error("❌ [#{state.user_id}] Close Failed: #{inspect(reason)}")
-        end
+        # ไม่ต้องรอ response และไม่ต้อง update DB ตรงนี้
+        Logger.info("📨 [#{state.user_id}] Sent CLOSE command for Ticket: #{slave_ticket}")
     end
   end
 
-  # --- Helper ยิง API ---
-  defp execute_api(payload) do
-    url = "http://localhost:5000/trade" # หรือ host.docker.internal
-    case Req.post(url, json: payload) do
-      {:ok, %{status: 200, body: body}} -> {:ok, body}
-      {:ok, %{status: _, body: body}} -> {:error, body}
-      {:error, reason} -> {:error, reason}
+  # แก้ Helper execute_tcp
+  defp execute_tcp(%{action: "CLOSE"} = p) do
+    # Format: CLOSE|SYMBOL|SLAVE_TICKET|MASTER_TICKET
+    command = "CLOSE|#{p.symbol}|#{p.ticket}|#{p.master_ticket}"
+
+    case Registry.lookup(CopyTrade.SocketRegistry, p.user_id) do
+      [{pid, _}] -> CopyTrade.SocketHandler.send_command(pid, command)
+      [] -> Logger.error("❌ Socket not found")
+    end
+    {:ok, %{}}
+  end
+
+  # Helper: จัดรูปแบบคำสั่ง TCP
+  defp execute_tcp(payload) do
+    user_id = payload[:user_id]
+
+    case Registry.lookup(CopyTrade.SocketRegistry, user_id) do
+      [{pid, _}] ->
+        # สร้าง String ตาม Format ใหม่:
+        # OPEN|BUY|SYMBOL|VOL|MAGIC|MASTER_TICKET
+
+        command = "OPEN|#{payload.action}|#{payload.symbol}|#{payload.volume}|#{payload.magic}|#{payload.master_ticket}"
+
+        CopyTrade.SocketHandler.send_command(pid, command)
+
+        # คืนค่าแบบ Dummy ไปก่อน (ไม่ได้ใช้จริง เพราะเราบันทึก DB ไปแล้ว)
+        {:ok, %{}}
+
+      [] ->
+        Logger.error("❌ Socket not found for User: #{user_id}")
+        {:error, :socket_not_found}
     end
   end
 end

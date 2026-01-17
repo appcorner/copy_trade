@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: copy_trade_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: copy_trade_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      # 🔥 บรรทัดนี้สำคัญที่สุด! มันบอกว่าให้เก็บข้อมูลไว้ที่โฟลเดอร์ postgres_data ในโปรเจกต์เรา
+      - ./postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  # (อนาคตเราเพิ่ม pgadmin หรือ service อื่นๆ ตรงนี้ได้)

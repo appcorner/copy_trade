@@ -7,6 +7,19 @@
 # General application configuration
 import Config
 
+config :copy_trade, :scopes,
+  user: [
+    default: true,
+    module: CopyTrade.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_type: :id,
+    schema_table: :users,
+    test_data_fixture: CopyTrade.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_user
+  ]
+
 config :copy_trade,
   ecto_repos: [CopyTrade.Repo],
   generators: [timestamp_type: :utc_datetime]

@@ -7,6 +7,9 @@
     <.live_title default="CopyTrade" suffix=" · Phoenix Framework">
       {assigns[:page_title]}
     </.live_title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,200;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
@@ -30,27 +33,68 @@
       })();
     </script>
   </head>
-  <body>
-    <ul class="menu menu-horizontal w-full relative z-10 flex items-center gap-4 px-4 sm:px-6 lg:px-8 justify-end">
-      <%= if @current_scope do %>
-        <li>
-          {@current_scope.user.email}
-        </li>
-        <li>
-          <.link href={~p"/users/settings"}>Settings</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log-out"} method="delete">Log out</.link>
-        </li>
-      <% else %>
-        <li>
-          <.link href={~p"/users/register"}>Register</.link>
-        </li>
-        <li>
-          <.link href={~p"/users/log-in"}>Log in</.link>
-        </li>
-      <% end %>
-    </ul>
-    {@inner_content}
+  <body class="bg-slate-50 antialiased">
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="flex h-16 justify-between">
+          
+          <div class="flex">
+            <div class="flex flex-shrink-0 items-center">
+              <a href="/" class="text-2xl font-black text-indigo-600 tracking-tighter hover:text-indigo-500">
+                ⚡ CopyTrade<span class="text-gray-900">Pro</span>
+              </a>
+            </div>
+            
+            <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+              <a href="/" class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                Home
+              </a>
+              <%= if @current_scope do %>
+                <.link navigate={~p"/dashboard"} class="inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-900">
+                  Dashboard
+                </.link>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="flex items-center">
+            <ul class="flex items-center gap-4">
+              <%= if @current_scope do %>
+                <li class="text-[0.8125rem] leading-6 text-zinc-900">
+                  <span class="font-semibold"><%= @current_scope.user.email %></span>
+                  <span class="ml-2 px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-700 font-bold uppercase">
+                    <%= @current_scope.user.role %>
+                  </span>
+                </li>
+                <li>
+                  <.link href={~p"/users/settings"} class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700">
+                    Settings
+                  </.link>
+                </li>
+                <li>
+                  <.link href={~p"/users/log-out"} method="delete" class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700">
+                    Log out
+                  </.link>
+                </li>
+              <% else %>
+                <li>
+                  <.link href={~p"/users/register"} class="text-[0.8125rem] leading-6 text-zinc-900 font-semibold hover:text-zinc-700">
+                    Register
+                  </.link>
+                </li>
+                <li>
+                  <.link href={~p"/users/log-in"} class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+                    Log in
+                  </.link>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <%= @inner_content %>
+    
   </body>
 </html>

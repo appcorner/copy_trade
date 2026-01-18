@@ -66,4 +66,32 @@ defmodule CopyTrade.TradePairContext do
         |> Repo.update()
     end
   end
+
+  # 6. ดึงออเดอร์ที่กำลังทำงานอยู่ (OPEN หรือ PENDING)
+  def list_active_pairs(user_id) do
+    from(t in TradePair,
+      where: t.user_id == ^user_id and t.status in ["OPEN", "PENDING"],
+      order_by: [desc: t.inserted_at]
+    )
+    |> Repo.all()
+  end
+
+  # 7. ดึงประวัติการเทรดที่จบแล้ว (CLOSED)
+  def list_closed_pairs(user_id, limit \\ 50) do
+    from(t in TradePair,
+      where: t.user_id == ^user_id and t.status == "CLOSED",
+      order_by: [desc: t.closed_at],
+      limit: ^limit
+    )
+    |> Repo.all()
+  end
+
+  # 8. คำนวณกำไรรวม
+  def get_total_profit(user_id) do
+    query = from t in TradePair,
+      where: t.user_id == ^user_id and t.status == "CLOSED",
+      select: sum(t.profit)
+
+    Repo.one(query) || 0.0
+  end
 end

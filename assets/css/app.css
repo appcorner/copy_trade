@@ -102,4 +102,14 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+@theme {
+  --font-sans: "Bai Jamjuree", sans-serif;
+}
+
 /* This file is for your main application CSS */
+/* 🔥 บังคับเปลี่ยน Font ทั้งเว็บตรงนี้เลยครับ */
+@layer base {
+  html, body {
+    font-family: 'Bai Jamjuree', sans-serif !important;
+  }
+}

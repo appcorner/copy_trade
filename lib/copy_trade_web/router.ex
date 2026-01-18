@@ -20,14 +20,14 @@ defmodule CopyTradeWeb.Router do
   scope "/", CopyTradeWeb do
     pipe_through :browser
 
-    # get "/", PageController, :home
+    get "/", PageController, :home
   end
 
   scope "/", CopyTradeWeb do
     pipe_through [:browser, :require_authenticated_user]
 
     # 🔥 เพิ่มบรรทัดนี้: ให้หน้าแรกเป็น DashboardLive
-    live "/", DashboardLive, :home
+    live "/dashboard", DashboardLive, :home
 
     # ... (route อื่นๆ เช่น users/settings) ...
     live "/admin", AdminDashboardLive

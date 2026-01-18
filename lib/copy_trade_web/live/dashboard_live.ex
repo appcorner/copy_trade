@@ -4,6 +4,7 @@ defmodule CopyTradeWeb.DashboardLive do
   on_mount {CopyTradeWeb.UserAuth, :require_sudo_mode}
 
   alias CopyTrade.Accounts
+  alias CopyTrade.TradePairContext
 
   @impl true
   def mount(_params, _session, socket) do
@@ -33,17 +34,42 @@ defmodule CopyTradeWeb.DashboardLive do
     )
   end
 
-  # เตรียมข้อมูลสำหรับ Follower
+  # เพิ่มการดึงข้อมูลเทรดในฟังก์ชันของ Follower
   defp assign_follower_data(socket, user) do
-    # ดึงข้อมูล Master ที่กำลังตามอยู่ (ถ้ามี)
     current_master = Accounts.get_following_master(user)
+
+    # 1. ดึงข้อมูล
+    active_pairs = TradePairContext.list_active_pairs(user.id)
+    closed_pairs = TradePairContext.list_closed_pairs(user.id)
+    total_profit = TradePairContext.get_total_profit(user.id)
+
+    # 2. Subscribe PubSub เพื่อให้หน้าจอขยับเองเมื่อมี Signal
+    if connected?(socket), do: Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals")
 
     assign(socket,
       role: :follower,
       page_title: "My Portfolio",
       api_key: user.api_key,
-      current_master: current_master
+      current_master: current_master,
+      # Assign data เข้าหน้าจอ
+      active_pairs: active_pairs,
+      closed_pairs: closed_pairs,
+      total_profit: total_profit
     )
+  end
+
+  # 🔥 เพิ่ม handle_info เพื่อรับ Signal แล้ว Refresh ข้อมูลเอง
+  @impl true
+  def handle_info(_msg, socket) do
+     # เมื่อมี Signal เข้ามา (ไม่ว่าจะ Open หรือ Close) ให้ดึงข้อมูลใหม่
+     user = socket.assigns.current_user
+
+     socket = assign(socket,
+       active_pairs: TradePairContext.list_active_pairs(user.id),
+       closed_pairs: TradePairContext.list_closed_pairs(user.id),
+       total_profit: TradePairContext.get_total_profit(user.id)
+     )
+     {:noreply, socket}
   end
 
   @impl true
@@ -131,6 +157,84 @@ defmodule CopyTradeWeb.DashboardLive do
              <div class="bg-white rounded p-2 font-mono text-xs text-gray-600 break-all border select-all">
                <%= @api_key %>
              </div>
+          </div>
+        </div>
+
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-indigo-600 rounded-xl p-6 text-white shadow-lg">
+             <div class="text-indigo-200 text-sm font-medium uppercase tracking-wider">Total Profit</div>
+             <div class="text-3xl font-bold mt-2">
+               $ <%= :erlang.float_to_binary(@total_profit, decimals: 2) %>
+             </div>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <h3 class="text-lg font-bold text-gray-900 mb-4">⚡ Active Trades</h3>
+          <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-300">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Symbol</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Price</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Time</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 bg-white">
+                <%= for pair <- @active_pairs do %>
+                  <tr>
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-bold text-gray-900"><%= pair.symbol %></td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                       Copy Trade
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= pair.open_price %></td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                      <span class={"inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset #{if pair.status == "OPEN", do: "bg-green-50 text-green-700 ring-green-600/20", else: "bg-yellow-50 text-yellow-800 ring-yellow-600/20"}"}>
+                        <%= pair.status %>
+                      </span>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      <%= Calendar.strftime(pair.inserted_at, "%H:%M:%S") %>
+                    </td>
+                  </tr>
+                <% end %>
+                <%= if @active_pairs == [] do %>
+                   <tr><td colspan="5" class="text-center py-4 text-gray-500 italic">No active trades running.</td></tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="mt-8 mb-12">
+          <h3 class="text-lg font-bold text-gray-900 mb-4">📜 Trade History</h3>
+          <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-300">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Symbol</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Close Price</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Profit</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Closed At</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 bg-white">
+                <%= for pair <- @closed_pairs do %>
+                  <tr>
+                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900"><%= pair.symbol %></td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= pair.close_price %></td>
+                    <td class={"whitespace-nowrap px-3 py-4 text-sm font-bold #{if pair.profit >= 0, do: "text-green-600", else: "text-red-600"}"}>
+                      <%= if pair.profit > 0, do: "+", else: "" %><%= pair.profit %>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                      <%= Calendar.strftime(pair.closed_at, "%d/%m %H:%M") %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
           </div>
         </div>
       <% end %>

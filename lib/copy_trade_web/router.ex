@@ -21,8 +21,6 @@ defmodule CopyTradeWeb.Router do
     pipe_through :browser
 
     # get "/", PageController, :home
-
-    # live "/admin", AdminDashboardLive
   end
 
   scope "/", CopyTradeWeb do
@@ -32,6 +30,7 @@ defmodule CopyTradeWeb.Router do
     live "/", DashboardLive, :home
 
     # ... (route อื่นๆ เช่น users/settings) ...
+    live "/admin", AdminDashboardLive
     live "/masters", MasterBoardLive
   end
 

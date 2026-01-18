@@ -37,113 +37,130 @@ defmodule CopyTrade.SocketHandler do
   use GenServer
   require Logger
 
-  # --- ส่วนของ Handler (คนดูแล User) ---
+  # --- Init & Info ---
   def init(socket) do
-    # ตั้งให้ Socket ส่งข้อมูลเข้ามาเป็น Message
     :inet.setopts(socket, [active: true])
     {:ok, %{socket: socket, user_id: nil}}
   end
 
-  # 1. รับข้อมูลจาก EA (Login หรือ Heartbeat)
   def handle_info({:tcp, _socket, data}, state) do
-    data = String.trim(data) # ตัด \n ออก
+    data = String.trim(data)
     state = handle_command(data, state)
     {:noreply, state}
   end
 
   def handle_info({:tcp_closed, _socket}, state) do
     if state.user_id do
-      Logger.warning("🔌 Socket Closed for user: #{state.user_id}")
-      # 🔥 ประกาศข่าว: User Offline
+      Logger.warning("🔌 Offline: #{state.user_id}")
       broadcast_status(state.user_id, :offline)
     end
     {:stop, :normal, state}
   end
 
-  # ฟังก์ชันส่งคำสั่งไปหา EA
+  # --- Handle Send Command ---
+
+  # API ให้คนอื่นเรียกใช้
   def send_command(pid, message) do
     GenServer.cast(pid, {:send, message})
   end
 
+  # ส่งข้อมูลออก Socket จริง
   def handle_cast({:send, message}, state) do
-    # ส่งข้อมูลกลับไปหา EA (เติม \n ปิดท้ายเสมอ)
     :gen_tcp.send(state.socket, message <> "\n")
     {:noreply, state}
   end
 
-  # --- Logic การคุยกับ EA ---
-
-  # # กรณี EA ส่งมาว่า: "AUTH:User123"
-  # defp handle_command("AUTH:" <> user_id, state) do
-  #   Logger.info("🔐 Client Authenticated: #{user_id}")
-
-  #   # ลงทะเบียน Socket นี้เข้ากับ User ID
-  #   Registry.register(CopyTrade.SocketRegistry, user_id, nil)
-
-  #   # 🔥 2. เพิ่มส่วนนี้: ปลุก Worker ขึ้นมาทำงานอัตโนมัติ!
-  #   start_worker_if_needed(user_id)
-
-  #   # 🔥 ประกาศข่าว: User Online
-  #   broadcast_status(user_id, :online)
-
-  #   # ตอบกลับว่า OK
-  #   :gen_tcp.send(state.socket, "AUTH_OK\n")
-
-  #   %{state | user_id: user_id}
-  # end
-
   # -----------------------------------------------------------
-  # 🔐 Auth ด้วย API Key
+  # 🗣️ Command Handlers
   # -----------------------------------------------------------
+
+  # 1. AUTH:API_KEY
   defp handle_command("AUTH:" <> api_key, state) do
     api_key = String.trim(api_key)
 
-    # 1. ค้นหา User จาก API Key ใน DB
-    # (เราต้องไปเขียนฟังก์ชัน get_user_by_api_key ใน Accounts context ก่อน)
     case CopyTrade.Accounts.get_user_by_api_key(api_key) do
       nil ->
-        Logger.warning("❌ Auth Failed: Invalid API Key")
         :gen_tcp.send(state.socket, "AUTH_FAILED\n")
-        # ตัดการเชื่อมต่อทันที
         {:stop, :normal, state}
 
       user ->
-        user_id = to_string(user.id) # แปลง ID เป็น String เพื่อใช้ใน Registry
-        Logger.info("🔐 Auth Success: #{user.email} (#{user.role})")
+        user_id = to_string(user.id)
+        Logger.info("🔐 Auth: #{user.email} (ID: #{user_id})")
 
-        # 2. ลงทะเบียน Socket ด้วย User ID (เหมือนเดิม เพื่อให้ Worker หาเจอ)
+        # Register & Start Worker
         Registry.register(CopyTrade.SocketRegistry, user_id, nil)
 
-        # 3. ถ้าเป็น Follower ให้ปลุก Worker
         if user.role == "follower" do
-          start_worker_if_needed(user_id)
+           start_worker_if_needed(user_id)
         end
 
-        # 4. แจ้ง Dashboard
         broadcast_status(user_id, :online)
-
         :gen_tcp.send(state.socket, "AUTH_OK\n")
-        %{state | user_id: user_id} # เก็บ User ID ไว้ใน State
+
+        %{state | user_id: user_id}
     end
   end
 
-  # กรณีได้รับแจ้งว่าเปิดออเดอร์สำเร็จ
-  # Format: ACK_OPEN|MASTER_TICKET|SLAVE_TICKET
-  defp handle_command("ACK_OPEN|" <> data, state) do
-    [master_ticket_str, slave_ticket_str] = String.split(data, "|")
+  # 2. SUBSCRIBE:MST-TOKEN
+  defp handle_command("SUBSCRIBE:" <> token, state) do
+    token = String.trim(token)
+    case CopyTrade.Accounts.get_master_by_token(token) do
+      nil ->
+        :gen_tcp.send(state.socket, "ERROR:INVALID_TOKEN\n")
+      master ->
+        # Link DB
+        CopyTrade.Accounts.link_follower_to_master(state.user_id, master.id)
+        Logger.info("🔗 [#{state.user_id}] Subscribed to Master ID: #{master.id}")
 
-    master_ticket = String.to_integer(master_ticket_str)
-    slave_ticket = String.to_integer(slave_ticket_str)
+        # Notify Worker
+        update_worker_following(state.user_id, master.id)
 
-    Logger.info("✅ [#{state.user_id}] EA Confirm Open! Master: #{master_ticket} -> Slave: #{slave_ticket}")
-
-    # 🔥 เรียก Context ไปอัปเดต DB
-    CopyTrade.TradePairContext.update_slave_ticket(state.user_id, master_ticket, slave_ticket)
-
+        :gen_tcp.send(state.socket, "SUBSCRIBE_OK\n")
+    end
     state
   end
 
-  # 3. กรณี EA ตอบกลับการปิด (ACK_CLOSE)
+  # 3. MASTER SIGNALS (SIGNAL_OPEN|...)
+  defp handle_command("SIGNAL_OPEN|" <> data, state) do
+    [type, symbol, price_str, ticket_str] = String.split(data, "|")
+
+    payload = %{
+      action: "OPEN_#{type}",
+      symbol: symbol,
+      price: String.to_float(price_str),
+      master_ticket: String.to_integer(ticket_str),
+      master_id: state.user_id # 🔥 ระบุคนส่ง (Master)
+    }
+
+    Logger.info("📡 Signal Broadcast: #{payload.action} on #{symbol}")
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+    state
+  end
+
+  defp handle_command("SIGNAL_CLOSE|" <> data, state) do
+    [symbol, ticket_str] = String.split(data, "|")
+
+    payload = %{
+      action: "CLOSE",
+      symbol: symbol,
+      master_ticket: String.to_integer(ticket_str),
+      master_id: state.user_id
+    }
+
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+    state
+  end
+
+  # 4. SLAVE ACK (ACK_OPEN|...) - EA ตอบกลับว่าเปิดแล้ว
+  defp handle_command("ACK_OPEN|" <> data, state) do
+    [master_ticket, slave_ticket] = String.split(data, "|") |> Enum.map(&String.to_integer/1)
+
+    Logger.info("✅ Order Opened! Master:#{master_ticket} -> Slave:#{slave_ticket}")
+    CopyTrade.TradePairContext.update_slave_ticket(state.user_id, master_ticket, slave_ticket)
+    state
+  end
+
+  # 5. SLAVE ACK CLOSE - EA ตอบกลับว่าปิดแล้ว
   defp handle_command("ACK_CLOSE|" <> data, state) do
     [master_ticket_str, price_str, profit_str] = String.split(data, "|")
 
@@ -151,47 +168,29 @@ defmodule CopyTrade.SocketHandler do
     price = String.to_float(price_str)
     profit = String.to_float(profit_str)
 
-    Logger.info("💰 [#{state.user_id}] Close Confirmed! Profit: #{profit}")
-
-    # 🔥 เรียก Context ไปอัปเดต DB
+    Logger.info("💰 Closed! Profit: #{profit}")
     CopyTrade.TradePairContext.mark_as_closed(state.user_id, master_ticket, price, profit)
-
     state
   end
 
-  # กรณีอื่นๆ (เช่น Ping)
-  defp handle_command(cmd, state) do
-    Logger.debug("📩 Recv from #{state.user_id}: #{cmd}")
-    state
-  end
+  # Catch-all
+  defp handle_command(_, state), do: state
 
-  # ฟังก์ชันช่วยปลุก Worker
+  # --- Helpers ---
   defp start_worker_if_needed(user_id) do
-    # ลองสั่ง Start Worker ผ่าน Supervisor
-    case DynamicSupervisor.start_child(CopyTrade.FollowerSupervisor, {CopyTrade.FollowerWorker, user_id: user_id}) do
-      {:ok, _pid} ->
-        Logger.info("🧠 Auto-started Worker for #{user_id}")
+    DynamicSupervisor.start_child(CopyTrade.FollowerSupervisor, {CopyTrade.FollowerWorker, user_id: user_id})
+  end
 
-      {:error, {:already_started, _pid}} ->
-        Logger.info("🧠 Worker #{user_id} is already running")
-
-      {:error, reason} ->
-        Logger.error("❌ Failed to auto-start worker: #{inspect(reason)}")
+  defp update_worker_following(user_id, master_id) do
+    case Registry.lookup(CopyTrade.FollowerRegistry, user_id) do
+      [{pid, _}] -> GenServer.cast(pid, {:update_master, master_id})
+      [] -> start_worker_if_needed(user_id)
     end
   end
 
   defp broadcast_status(user_id, status) do
-    # ดึงข้อมูล User ล่าสุด
     user = CopyTrade.Accounts.get_user!(user_id)
-
-    # ส่งไปทั้งก้อนเลย (Map)
-    user_info = %{id: user.id, name: user.name, email: user.email}
-
-    # ส่งไปที่ topic "admin_dashboard"
-    Phoenix.PubSub.broadcast(
-      CopyTrade.PubSub,
-      "admin_dashboard",
-      {:follower_status, user_info, status}
-    )
+    info = %{id: user.id, name: user.name, email: user.email}
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "admin_dashboard", {:follower_status, info, status})
   end
 end

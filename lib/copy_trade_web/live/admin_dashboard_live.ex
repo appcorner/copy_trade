@@ -1,6 +1,6 @@
 defmodule CopyTradeWeb.AdminDashboardLive do
   use CopyTradeWeb, :live_view
-  alias CopyTrade.AdminContext
+  # alias CopyTrade.AdminContext
 
   @impl true
   def mount(_params, _session, socket) do

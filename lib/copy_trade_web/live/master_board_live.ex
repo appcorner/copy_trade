@@ -10,7 +10,7 @@ defmodule CopyTradeWeb.MasterBoardLive do
   def render(assigns) do
     ~H"""
     <div class="p-8">
-      <h1 class="text-2xl font-bold mb-6">🏆 Top Masters</h1>
+      <h1 class="text-2xl font-bold mb-6">🏆 ทำเนียบผู้นำเทรด (Top Masters)</h1>
       <div class="grid gap-4">
         <%= for m <- @masters do %>
           <div class="bg-white p-4 rounded-lg shadow border flex justify-between items-center">
@@ -20,7 +20,7 @@ defmodule CopyTradeWeb.MasterBoardLive do
             </div>
             <div class="text-center">
               <span class="text-2xl font-bold text-indigo-600"><%= m.follower_count %></span>
-              <p class="text-xs text-gray-400">Followers</p>
+              <p class="text-xs text-gray-400">ผู้ติดตาม</p>
             </div>
           </div>
         <% end %>

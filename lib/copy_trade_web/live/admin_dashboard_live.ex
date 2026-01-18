@@ -41,18 +41,18 @@ defmodule CopyTradeWeb.AdminDashboardLive do
   def render(assigns) do
     ~H"""
     <div class="p-8">
-      <h1 class="text-2xl font-bold mb-4">🚀 Admin Dashboard</h1>
+      <h1 class="text-2xl font-bold mb-4">🚀 แดชบอร์ดผู้ดูแลระบบ (Admin)</h1>
 
       <div class="bg-white shadow rounded-lg p-6">
         <h2 class="text-lg font-semibold mb-4 border-b pb-2">
-          🔌 Connected TCP Clients
+          🔌 ผู้ใช้งานที่กำลังเชื่อมต่อ (TCP Clients)
           <span class="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-            <%= length(@connected_users) %> Online
+            <%= length(@connected_users) %> ออนไลน์
           </span>
         </h2>
 
         <%= if @connected_users == [] do %>
-          <p class="text-gray-500 italic">No clients connected.</p>
+          <p class="text-gray-500 italic">ไม่มีผู้ใช้งานเชื่อมต่อในขณะนี้</p>
         <% else %>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <%= for user <- @connected_users do %>
@@ -66,7 +66,7 @@ defmodule CopyTradeWeb.AdminDashboardLive do
                   <span class="font-bold text-gray-800">
                     <%= user.name || user.email %>
                   </span>
-                  <span class="text-xs text-gray-500">ID: <%= user.id %></span>
+                  <span class="text-xs text-gray-500">รหัส: <%= user.id %></span>
                 </span>
               </div>
             <% end %>

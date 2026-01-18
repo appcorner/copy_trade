@@ -9,7 +9,7 @@ defmodule CopyTradeWeb.UserLive.Confirmation do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="mx-auto max-w-sm">
         <div class="text-center">
-          <.header>Welcome {@user.email}</.header>
+          <.header>ยินดีต้อนรับ {@user.email}</.header>
         </div>
 
         <.form
@@ -25,13 +25,13 @@ defmodule CopyTradeWeb.UserLive.Confirmation do
           <.button
             name={@form[:remember_me].name}
             value="true"
-            phx-disable-with="Confirming..."
+            phx-disable-with="กำลังยืนยัน..."
             class="btn btn-primary w-full"
           >
-            Confirm and stay logged in
+            ยืนยันและคงสถานะล็อกอินไว้
           </.button>
-          <.button phx-disable-with="Confirming..." class="btn btn-primary btn-soft w-full mt-2">
-            Confirm and log in only this time
+          <.button phx-disable-with="กำลังยืนยัน..." class="btn btn-primary btn-soft w-full mt-2">
+            ยืนยันและล็อกอินเฉพาะครั้งนี้
           </.button>
         </.form>
 
@@ -46,26 +46,26 @@ defmodule CopyTradeWeb.UserLive.Confirmation do
         >
           <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
           <%= if @current_scope do %>
-            <.button phx-disable-with="Logging in..." class="btn btn-primary w-full">
-              Log in
+            <.button phx-disable-with="กำลังเข้าสู่ระบบ..." class="btn btn-primary w-full">
+              เข้าสู่ระบบ
             </.button>
           <% else %>
             <.button
               name={@form[:remember_me].name}
               value="true"
-              phx-disable-with="Logging in..."
+              phx-disable-with="กำลังเข้าสู่ระบบ..."
               class="btn btn-primary w-full"
             >
-              Keep me logged in on this device
+              คงสถานะล็อกอินไว้บนอุปกรณ์นี้
             </.button>
-            <.button phx-disable-with="Logging in..." class="btn btn-primary btn-soft w-full mt-2">
-              Log me in only this time
+            <.button phx-disable-with="กำลังเข้าสู่ระบบ..." class="btn btn-primary btn-soft w-full mt-2">
+              ล็อกอินเฉพาะครั้งนี้
             </.button>
           <% end %>
         </.form>
 
         <p :if={!@user.confirmed_at} class="alert alert-outline mt-8">
-          Tip: If you prefer passwords, you can enable them in the user settings.
+          คำแนะนำ: หากคุณต้องการใช้รหัสผ่าน คุณสามารถเปิดใช้งานได้ในหน้าตั้งค่าผู้ใช้
         </p>
       </div>
     </Layouts.app>
@@ -82,7 +82,7 @@ defmodule CopyTradeWeb.UserLive.Confirmation do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Magic link is invalid or it has expired.")
+       |> put_flash(:error, "ลิงก์ยืนยันไม่ถูกต้องหรือหมดอายุแล้ว")
        |> push_navigate(to: ~p"/users/log-in")}
     end
   end

@@ -4,30 +4,29 @@ defmodule CopyTradeWeb.UserLive.Registration do
   alias CopyTrade.Accounts
   alias CopyTrade.Accounts.User
 
-@impl true
+  @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="mx-auto max-w-sm">
         <div class="text-center">
           <.header>
-            Register for an account
+            สมัครสมาชิกใหม่
             <:subtitle>
-              Already registered?
+              มีบัญชีอยู่แล้ว?
               <.link navigate={~p"/users/log-in"} class="font-semibold text-brand hover:underline">
-                Log in
+                เข้าสู่ระบบ
               </.link>
-              to your account now.
+              ที่นี่
             </:subtitle>
           </.header>
         </div>
 
         <.form for={@form} id="registration_form" phx-submit="save" phx-change="validate">
-
           <.input
             field={@form[:email]}
             type="email"
-            label="Email"
+            label="อีเมล"
             autocomplete="username"
             required
             phx-mounted={JS.focus()}
@@ -36,13 +35,13 @@ defmodule CopyTradeWeb.UserLive.Registration do
           <.input
             field={@form[:name]}
             type="text"
-            label="Display Name (e.g. Trader Joe)"
+            label="ชื่อที่ใช้แสดง (เช่น Trader Joe)"
             required
           />
 
           <div class="mt-6 pt-4 border-t border-gray-100">
             <label class="block text-sm font-semibold leading-6 text-zinc-800 mb-3">
-              I want to be a...
+              เลือกสถานะของคุณ...
             </label>
 
             <div class="grid grid-cols-2 gap-4">
@@ -50,8 +49,8 @@ defmodule CopyTradeWeb.UserLive.Registration do
                 <input type="radio" name="user[role]" value="follower" class="peer sr-only" checked={@form[:role].value == "follower" || is_nil(@form[:role].value)} />
                 <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
                   <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">👥</div>
-                  <span class="font-bold text-gray-900 block">Follower</span>
-                  <span class="text-xs text-gray-500 mt-1">Copy others</span>
+                  <span class="font-bold text-gray-900 block">ผู้ตาม (Follower)</span>
+                  <span class="text-xs text-gray-500 mt-1">คัดลอกเทรดจากคนอื่น</span>
                 </div>
               </label>
 
@@ -59,22 +58,22 @@ defmodule CopyTradeWeb.UserLive.Registration do
                 <input type="radio" name="user[role]" value="master" class="peer sr-only" checked={@form[:role].value == "master"} />
                 <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
                   <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">🏆</div>
-                  <span class="font-bold text-gray-900 block">Master</span>
-                  <span class="text-xs text-gray-500 mt-1">Share signals</span>
+                  <span class="font-bold text-gray-900 block">ผู้นำเทรด (Master)</span>
+                  <span class="text-xs text-gray-500 mt-1">แชร์สัญญาณเทรด</span>
                 </div>
               </label>
             </div>
 
             <%= if @form[:role].errors != [] do %>
               <div class="mt-2 text-sm text-red-600">
-                Please select a valid role.
+                กรุณาเลือกสถานะให้ถูกต้อง
               </div>
             <% end %>
           </div>
 
           <div class="mt-6">
             <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
-              Create an account
+              สร้างบัญชีผู้ใช้
             </.button>
           </div>
         </.form>

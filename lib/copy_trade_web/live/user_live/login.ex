@@ -10,30 +10,23 @@ defmodule CopyTradeWeb.UserLive.Login do
       <div class="mx-auto max-w-sm space-y-4">
         <div class="text-center">
           <.header>
-            <p>Log in</p>
+            <p>เข้าสู่ระบบ</p>
             <:subtitle>
               <%= if @current_scope do %>
-                You need to reauthenticate to perform sensitive actions on your account.
+                คุณต้องยืนยันตัวตนอีกครั้งเพื่อความปลอดภัย
               <% else %>
-                Don't have an account? <.link
+                ยังไม่มีบัญชี? <.link
                   navigate={~p"/users/register"}
                   class="font-semibold text-brand hover:underline"
                   phx-no-format
-                >Sign up</.link> for an account now.
+                >สมัครสมาชิก</.link> ได้เลย
               <% end %>
             </:subtitle>
           </.header>
         </div>
 
         <div :if={local_mail_adapter?()} class="alert alert-info">
-          <.icon name="hero-information-circle" class="size-6 shrink-0" />
-          <div>
-            <p>You are running the local mail adapter.</p>
-            <p>
-              To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
-            </p>
-          </div>
-        </div>
+           </div>
 
         <.form
           :let={f}
@@ -46,17 +39,17 @@ defmodule CopyTradeWeb.UserLive.Login do
             readonly={!!@current_scope}
             field={f[:email]}
             type="email"
-            label="Email"
+            label="อีเมล"
             autocomplete="email"
             required
             phx-mounted={JS.focus()}
           />
           <.button class="btn btn-primary w-full">
-            Log in with email <span aria-hidden="true">→</span>
+            เข้าสู่ระบบด้วยลิ้งค์ทางอีเมล <span aria-hidden="true">→</span>
           </.button>
         </.form>
 
-        <div class="divider">or</div>
+        <div class="divider">หรือ</div>
 
         <.form
           :let={f}
@@ -70,21 +63,21 @@ defmodule CopyTradeWeb.UserLive.Login do
             readonly={!!@current_scope}
             field={f[:email]}
             type="email"
-            label="Email"
+            label="อีเมล"
             autocomplete="email"
             required
           />
           <.input
             field={@form[:password]}
             type="password"
-            label="Password"
+            label="รหัสผ่าน"
             autocomplete="current-password"
           />
           <.button class="btn btn-primary w-full" name={@form[:remember_me].name} value="true">
-            Log in and stay logged in <span aria-hidden="true">→</span>
+            เข้าสู่ระบบ <span aria-hidden="true">→</span>
           </.button>
           <.button class="btn btn-primary btn-soft w-full mt-2">
-            Log in only this time
+            เข้าสู่ระบบเฉพาะครั้งนี้ (ไม่จำเครื่อง)
           </.button>
         </.form>
       </div>

@@ -11,8 +11,8 @@ defmodule CopyTradeWeb.UserLive.Settings do
     <Layouts.app flash={@flash} current_scope={@current_scope}>
       <div class="text-center">
         <.header>
-          Account Settings
-          <:subtitle>Manage your account email address and password settings</:subtitle>
+          ตั้งค่าบัญชี
+          <:subtitle>จัดการชื่อ อีเมล และรหัสผ่านของคุณ</:subtitle>
         </.header>
       </div>
 
@@ -20,11 +20,11 @@ defmodule CopyTradeWeb.UserLive.Settings do
         <.input
           field={@name_form[:name]}
           type="text"
-          label="Display Name"
+          label="ชื่อที่ใช้แสดง"
           autocomplete="name"
           required
         />
-        <.button variant="primary" phx-disable-with="Changing...">Change Name</.button>
+        <.button variant="primary" phx-disable-with="Changing...">เปลี่ยนชื่อ</.button>
       </.form>
 
       <div class="divider" />
@@ -33,11 +33,11 @@ defmodule CopyTradeWeb.UserLive.Settings do
         <.input
           field={@email_form[:email]}
           type="email"
-          label="Email"
+          label="อีเมล"
           autocomplete="username"
           required
         />
-        <.button variant="primary" phx-disable-with="Changing...">Change Email</.button>
+        <.button variant="primary" phx-disable-with="Changing...">เปลี่ยนอีเมล</.button>
       </.form>
 
       <div class="divider" />
@@ -61,18 +61,18 @@ defmodule CopyTradeWeb.UserLive.Settings do
         <.input
           field={@password_form[:password]}
           type="password"
-          label="New password"
+          label="รหัสผ่านใหม่"
           autocomplete="new-password"
           required
         />
         <.input
           field={@password_form[:password_confirmation]}
           type="password"
-          label="Confirm new password"
+          label="ยืนยันรหัสผ่านใหม่"
           autocomplete="new-password"
         />
         <.button variant="primary" phx-disable-with="Saving...">
-          Save Password
+          บันทึกรหัสผ่าน
         </.button>
       </.form>
     </Layouts.app>

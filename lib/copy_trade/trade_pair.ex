@@ -3,24 +3,25 @@ defmodule CopyTrade.TradePair do
   import Ecto.Changeset
 
   schema "trade_pairs" do
-    field :user_id, :string
     field :master_ticket, :integer
     field :slave_ticket, :integer
     field :symbol, :string
-    field :status, :string
+    field :status, :string # PENDING, OPEN, CLOSED
     field :open_price, :float
     field :close_price, :float
     field :profit, :float
+    field :opened_at, :utc_datetime
+    field :closed_at, :utc_datetime
 
-    timestamps(type: :utc_datetime)
+    # ผูกกับ User (Follower)
+    belongs_to :user, CopyTrade.Accounts.User
+
+    timestamps()
   end
 
-  @doc false
-  def changeset(trade_pair, attrs) do
-    trade_pair
+  def changeset(pair, attrs) do
+    pair
     |> cast(attrs, [:user_id, :master_ticket, :slave_ticket, :symbol, :status, :open_price, :close_price, :profit])
-    |> validate_required([:user_id, :master_ticket, :slave_ticket, :symbol, :status, :open_price])
-    # สำคัญ: เช็ค Unique Constraint ตรงนี้ด้วย เพื่อจับ Error ถ้าข้อมูลซ้ำ
-    |> unique_constraint([:user_id, :master_ticket])
+    |> validate_required([:user_id, :master_ticket, :symbol, :status])
   end
 end

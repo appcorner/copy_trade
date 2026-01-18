@@ -42,14 +42,14 @@ defmodule CopyTrade.FollowerWorker do
     {:noreply, state}
   end
 
+  # รับ message อื่นๆ ทั่วไป
+  def handle_info(_msg, state), do: {:noreply, state}
+
   # รับการอัปเดต Master (เมื่อ User เปลี่ยนใจไปตามคนอื่น)
   def handle_cast({:update_master, master_id}, state) do
     Logger.info("♻️ Worker [#{state.user_id}] switching to Master ID: #{master_id}")
     {:noreply, %{state | following_id: master_id}}
   end
-
-  # รับ message อื่นๆ ทั่วไป
-  def handle_info(_msg, state), do: {:noreply, state}
 
   # ------------------------------------------------------------------
   # ⚔️ CORE LOGIC: กรองสัญญาณและส่งคำสั่ง

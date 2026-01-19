@@ -52,7 +52,7 @@
 ขั้นตอนการรัน:
 ```bash
 # 1. Clone โปรเจกต์
-git clone [https://github.com/your-username/copy-trade-pro.git](https://github.com/your-username/copy-trade-pro.git)
+git clone [https://github.com/appcorner/copy_trade.git](https://github.com/appcorner/copy_trade.git)
 cd copy-trade-pro
 
 # 2. ติดตั้ง Dependencies

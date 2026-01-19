@@ -1,0 +1,8 @@
+_build
+deps
+.git
+.env
+*.db
+docker-compose.yml
+Dockerfile
+README.md

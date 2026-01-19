@@ -52,8 +52,8 @@
 ขั้นตอนการรัน:
 ```bash
 # 1. Clone โปรเจกต์
-git clone [https://github.com/appcorner/copy_trade.git](https://github.com/appcorner/copy_trade.git)
-cd copy-trade-pro
+git clone https://github.com/appcorner/copy_trade.git
+cd copy-trade
 
 # 2. ติดตั้ง Dependencies
 mix deps.get

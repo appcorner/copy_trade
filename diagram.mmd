@@ -1,0 +1,83 @@
+---
+config:
+  layout: dagre
+  theme: default
+---
+graph TD
+    %% --- Style Definitions ---
+    classDef client fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef elx fill:#a29bfe,stroke:#6c5ce7,stroke-width:2px,color:white;
+    classDef db fill:#dfe6e9,stroke:#b2bec3,stroke-width:2px;
+    classDef mt5 fill:#ffeaa7,stroke:#fdcb6e,stroke-width:2px;
+
+    %% --- External Clients (User & MT5) ---
+    subgraph Users ["User Interface (Frontend)"]
+        Browser_Master["📱 Master Dashboard<br>(Mobile/Desktop)"]:::client
+        Browser_Follower["📱 Follower Dashboard<br>(Mobile/Desktop)"]:::client
+        Browser_Admin["💻 Admin Dashboard"]:::client
+    end
+
+    subgraph MT5_Env ["MetaTrader 5 Environment (Clients)"]
+        MasterEA["🏆 Master EA<br>(MasterSender_V3_TCP)"]:::mt5
+        SlaveEA["🤖 Slave EA<br>(SlaveTCP_V5)"]:::mt5
+    end
+
+    %% --- Backend System ---
+    subgraph Backend ["⚡ Elixir Phoenix Server (Backend)"]
+        
+        subgraph Web_Layer ["Web Layer (Port 4000)"]
+            Endpoint["Phoenix Endpoint<br>(Cowboy/Bandit)"]:::elx
+            LiveView_Dash["LiveView Process<br>(DashboardLive)"]:::elx
+            LiveView_Admin["LiveView Process<br>(AdminDashboardLive)"]:::elx
+        end
+
+        subgraph Core_Layer ["Core Business Logic"]
+            PubSub["📡 Phoenix PubSub<br>(Message Broker)"]:::elx
+            Contexts["Contexts<br>(Accounts, TradePairContext)"]:::elx
+        end
+
+        subgraph TCP_Layer ["TCP Layer (Port 5001)"]
+            TCPServer["🔌 TCP Server (GenServer)<br>(Thousand Island / Ranch)"]:::elx
+            Worker_Master["Master Handler PID"]:::elx
+            Worker_Slave["Slave Handler PID"]:::elx
+        end
+        
+        Repo["💾 Ecto Repo"]:::elx
+    end
+
+    %% --- Database ---
+    subgraph Data ["Persistence"]
+        Postgres[("🐘 PostgreSQL")]:::db
+    end
+
+    %% --- Connections & Flows ---
+
+    %% 1. Web Connections
+    Browser_Master <==>|"WebSocket (Secure)"| Endpoint
+    Browser_Follower <==>|"WebSocket (Secure)"| Endpoint
+    Browser_Admin <==>|"WebSocket (Secure)"| Endpoint
+    Endpoint <--> LiveView_Dash
+    Endpoint <--> LiveView_Admin
+
+    %% 2. TCP Connections (Trading)
+    MasterEA ==>|"1.&nbsp;Send Signal (JSON)"| TCPServer
+    TCPServer -.-> Worker_Master
+    
+    SlaveEA <==>|"TCP Connection"| TCPServer
+    TCPServer -.-> Worker_Slave
+
+    %% 3. Internal Logic Flow
+    Worker_Master --"2.&nbsp;Save Trade"--> Contexts
+    Contexts --"Insert/Update"--> Repo
+    Repo <--> Postgres
+
+    Worker_Master --"3.&nbsp;Broadcast Signal"--> PubSub
+    
+    %% 4. Fan-out (Broadcasting)
+    PubSub --"4a.&nbsp;Notify Slave PIDs"--> Worker_Slave
+    Worker_Slave ==>|"5.&nbsp;Send Order Command"| SlaveEA
+    SlaveEA -.->|"6.&nbsp;Send Execution Result"| Worker_Slave
+
+    %% 5. Real-time UI Updates
+    PubSub --"4b.&nbsp;Update Dashboard"--> LiveView_Dash
+    PubSub --"4c.&nbsp;Update Admin"--> LiveView_Admin

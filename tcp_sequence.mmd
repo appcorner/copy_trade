@@ -1,0 +1,60 @@
+---
+config:
+  layout: dagre
+  theme: default
+---
+sequenceDiagram
+    autonumber
+    participant M as 🏆 Master EA
+    participant S as ⚡ Server (Elixir)
+    participant F as 👥 Follower EA
+
+    %% --- Phase 1: Authentication & Setup ---
+    Note over M, F: 🔌 Phase 1: Connection & Authentication
+
+    M->>S: AUTH:your_master_api_key
+    S-->>M: AUTH_OK
+
+    F->>S: AUTH:your_follower_api_key
+    S-->>F: AUTH_OK
+
+    F->>S: SUBSCRIBE:MST_TOKEN_123
+    Note right of S: Server links Follower -> Master
+    S-->>F: SUBSCRIBE_OK
+
+    %% --- Phase 2: Open Order Flow ---
+    Note over M, F: 📈 Phase 2: Opening a Trade
+    
+    %% Master opens order
+    Note left of M: Master buys GOLD<br/>Ticket: 10001
+    M->>S: SIGNAL_OPEN|BUY|XAUUSD|2030.50|10001
+    
+    %% Server processing
+    Note right of S: 1. Save to DB (Pending)<br/>2. Broadcast to Followers
+    
+    %% Forward to Follower
+    S->>F: SIGNAL_OPEN|BUY|XAUUSD|2030.50|10001
+    
+    %% Follower executes
+    Note left of F: Follower executes trade<br/>Got New Ticket: 55555
+    
+    %% Ack back to Server
+    F->>S: ACK_OPEN|10001|55555
+    Note right of S: Map Master(10001) <-> Slave(55555)<br/>Update Status: OPEN
+
+    %% --- Phase 3: Close Order Flow ---
+    Note over M, F: 💰 Phase 3: Closing a Trade
+
+    %% Master closes order
+    Note left of M: Master closes Ticket: 10001
+    M->>S: SIGNAL_CLOSE|XAUUSD|10001
+    
+    %% Forward to Follower
+    S->>F: SIGNAL_CLOSE|XAUUSD|10001
+    
+    %% Follower executes close
+    Note left of F: Find Slave Ticket mapped to 10001<br/>Close Ticket: 55555
+    
+    %% Ack result (Profit)
+    F->>S: ACK_CLOSE|10001|2035.00|4.50
+    Note right of S: Update Status: CLOSED<br/>Save Profit: $4.50

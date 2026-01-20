@@ -1,0 +1,5 @@
+# ใส่โดเมนของคุณ
+copytradepro.yourdomain.com {
+    # ส่งต่อ traffic ไปที่ app พอร์ต 4000
+    reverse_proxy app:4000
+}

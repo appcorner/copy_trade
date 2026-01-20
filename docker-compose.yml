@@ -1,18 +1,64 @@
 version: '3.8'
 
 services:
+  # ----------------------------
+  # 1. Database Service (Postgres)
+  # ----------------------------
   db:
     image: postgres:15-alpine
     container_name: copy_trade_db
+    restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: copy_trade_dev
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: mysecretpassword  # 👈 เปลี่ยนรหัสผ่านตรงนี้
+      POSTGRES_DB: copy_trade_prod
     volumes:
-      # 🔥 บรรทัดนี้สำคัญที่สุด! มันบอกว่าให้เก็บข้อมูลไว้ที่โฟลเดอร์ postgres_data ในโปรเจกต์เรา
-      - ./postgres_data:/var/lib/postgresql/data
-    restart: always
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # เปิดไว้เผื่อเอา pgAdmin เข้าไปดู (ปิดได้ถ้าต้องการความปลอดภัย)
 
-  # (อนาคตเราเพิ่ม pgadmin หรือ service อื่นๆ ตรงนี้ได้)
+  # ----------------------------
+  # 2. App Service (Elixir)
+  # ----------------------------
+  app:
+    build: .
+    container_name: copy_trade_app
+    restart: always
+    depends_on:
+      - db
+    ports:
+      #- "4000:4000" # Web Access
+      - "5001:5001" # TCP Socket for EA
+    expose:
+      - "4000"
+    environment:
+      MIX_ENV: prod
+      PHX_SERVER: "true"
+      SECRET_KEY_BASE: "REPLACE_WITH_YOUR_SECRET_KEY_BASE" # 👈 เอาค่าจาก mix phx.gen.secret มาใส่
+      DATABASE_URL: "ectou://postgres:mysecretpassword@db/copy_trade_prod" # 👈 สังเกต @db คือชื่อ service ด้านบน
+      TELEGRAM_TOKEN: "TELEGRAM_TOKEN_HERE"
+      TELEGRAM_CHAT_ID: "TELEGRAM_CHAT_ID_HERE"
+      #DISCORD_WEBHOOK_URL: "DISCORD_WEBHOOK_URL_HERE"
+    volumes:
+      - ./uploads:/app/uploads # เผื่อมีการอัพโหลดไฟล์
+
+  # ----------------------------
+  # 3. Service Caddy
+  # ----------------------------
+  caddy:
+    image: caddy:alpine
+    restart: always
+    ports:
+      - "80:80"      # เปิดพอร์ต HTTP
+      - "443:443"    # เปิดพอร์ต HTTPS
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  pg_data:
+  caddy_data:        # ✅ เพิ่ม volume สำหรับเก็บ Cert
+  caddy_config:      # ✅ เพิ่ม volume config

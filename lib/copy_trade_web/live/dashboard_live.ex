@@ -95,7 +95,7 @@ defmodule CopyTradeWeb.DashboardLive do
               <h2 class="text-lg font-medium opacity-90 mb-1">Master Token ของคุณ</h2>
               <p class="text-xs opacity-70 mb-3">ส่งรหัสนี้ให้ผู้ติดตาม เพื่อใช้เชื่อมต่อกับคุณ</p>
 
-              <div class="bg-white/20 backdrop-blur-sm rounded-lg p-3 font-mono text-2xl font-bold tracking-wider text-center border border-white/30 select-all">
+              <div class="bg-white/20 backdrop-blur-sm rounded-lg p-3 font-mono text-lg font-bold tracking-wider text-center border border-white/30 select-all">
                 <%= @master_token %>
               </div>
             </div>

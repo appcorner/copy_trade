@@ -37,7 +37,7 @@ RUN mix assets.deploy
 RUN mix compile
 
 # 8. สร้าง Release (พระเอกของเรา)
-COPY rel rel
+# COPY rel rel
 RUN mix release
 
 # ---------------------------------------------------

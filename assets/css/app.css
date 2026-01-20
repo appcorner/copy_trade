@@ -112,4 +112,26 @@
   html, body {
     font-family: 'Bai Jamjuree', sans-serif !important;
   }
+
+  /* 🔥 เพิ่มบรรทัดนี้: บังคับให้ Browser ใช้ Light Mode เท่านั้น */
+  :root {
+    color-scheme: light;
+  }
+  
+  /* ป้องกัน Tailwind ใช้ Dark variant */
+  html {
+    color-scheme: light;
+  }
+
+  /* 🔥 บังคับให้ Label ทุกตัวเป็นสีเข้ม */
+  label {
+    @apply text-gray-900 !important; /* สีเกือบดำ */
+  }
+
+  /* 🔥 บังคับให้ Input Field เป็นพื้นขาว ขอบเทา (แก้ที่เป็นพื้นดำอยู่) */
+  input[type="text"], 
+  input[type="email"], 
+  input[type="password"] {
+    @apply bg-white text-gray-900 border-gray-300 !important;
+  }
 }

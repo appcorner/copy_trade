@@ -10,12 +10,12 @@ defmodule CopyTradeWeb.MasterBoardLive do
   def render(assigns) do
     ~H"""
     <div class="p-8">
-      <h1 class="text-2xl font-bold mb-6">🏆 ทำเนียบผู้นำเทรด (Top Masters)</h1>
+      <h1 class="text-2xl font-bold mb-6 text-gray-900">🏆 ทำเนียบผู้นำเทรด (Top Masters)</h1>
       <div class="grid gap-4">
         <%= for m <- @masters do %>
           <div class="bg-white p-4 rounded-lg shadow border flex justify-between items-center">
             <div>
-              <h2 class="text-xl font-bold"><%= m.name %></h2>
+              <h2 class="text-xl font-bold text-gray-800"><%= m.name %></h2>
               <p class="text-sm text-gray-500">Token: <span class="bg-gray-100 px-2 py-1 rounded select-all font-mono"><%= m.token %></span></p>
             </div>
             <div class="text-center">

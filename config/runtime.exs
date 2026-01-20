@@ -121,4 +121,7 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Req
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
+  config :copy_trade, CopyTrade.Mailer,
+    adapter: Swoosh.Adapters.Logger,
+    level: :info
 end

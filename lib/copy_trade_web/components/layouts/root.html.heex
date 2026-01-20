@@ -53,7 +53,7 @@
               <a href="/" class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                 Home
               </a>
-              <%= if @current_user do %>
+              <%= if @current_scope do %>
                 <.link navigate={~p"/dashboard"} class="inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-900">
                   Dashboard
                 </.link>
@@ -63,12 +63,12 @@
 
           <div class="hidden sm:ml-6 sm:flex sm:items-center">
             <ul class="flex items-center gap-4">
-              <%= if @current_user do %>
+              <%= if @current_scope do %>
                 <li class="text-sm text-right">
-                  <div class="font-bold text-gray-900"><%= @current_user.email %></div>
+                  <div class="font-bold text-gray-900"><%= @current_scope.user.email %></div>
                   <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                    <span class={if @current_user.role == "master", do: "text-indigo-600", else: "text-green-600"}>
-                      <%= @current_user.role %>
+                    <span class={if @current_scope.user.role == "master", do: "text-indigo-600", else: "text-green-600"}>
+                      <%= @current_scope.user.role %>
                     </span>
                   </div>
                 </li>
@@ -122,7 +122,7 @@
         <div class="space-y-1 pb-3 pt-2">
           <a href="/" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Home</a>
           
-          <%= if @current_user do %>
+          <%= if @current_scope do %>
             <.link navigate={~p"/dashboard"} class="block border-l-4 border-indigo-500 bg-indigo-50 py-2 pl-3 pr-4 text-base font-medium text-indigo-700">
               Dashboard
             </.link>
@@ -130,18 +130,18 @@
         </div>
         
         <div class="border-t border-gray-200 pb-3 pt-4">
-          <%= if @current_user do %>
+          <%= if @current_scope do %>
             <div class="flex items-center px-4 mb-3">
               <div class="flex-shrink-0">
                 <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xl">
-                  <%= String.at(@current_user.email, 0) |> String.upcase() %>
+                  <%= String.at(@current_scope.user.email, 0) |> String.upcase() %>
                 </div>
               </div>
               <div class="ml-3">
-                <div class="text-base font-medium text-gray-800"><%= @current_user.name || "User" %></div>
-                <div class="text-sm font-medium text-gray-500"><%= @current_user.email %></div>
+                <div class="text-base font-medium text-gray-800"><%= @current_scope.user.name || "User" %></div>
+                <div class="text-sm font-medium text-gray-500"><%= @current_scope.user.email %></div>
                 <div class="mt-1 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
-                  <%= @current_user.role %>
+                  <%= @current_scope.user.role %>
                 </div>
               </div>
             </div>

@@ -94,6 +94,11 @@ mix phx.server
 4. สมัครสมาชิกหน้าเว็บ เพื่อรับ **API Key** และ **Master Token**
 5. นำ Key ไปใส่ในช่อง Input ของ EA
 
+
+#### *** ข้อมูลการ รับ-ส่ง TCP ระหว่าง Server กับ EA ***
+
+* [TCP Message Specification (Text/Pipe Format)](tcp_spec.md)
+* [TCP Sequence Diagram](tcp_sequence.mmd)
 ---
 
 ## 🔄 หลักการทำงาน (Workflow)
@@ -173,4 +178,4 @@ A: ตรวจสอบว่าเปิด **Allow DLL imports** ใน MT5 �
 
 ## 📝 License
 
-This project is open source and available under the [MIT License](https://www.google.com/search?q=LICENSE).
+โปรเจคนี้เผยแพร่ภายใต้ลิขสิทธิ์แบบ [MIT License](https://www.google.com/search?q=LICENSE).

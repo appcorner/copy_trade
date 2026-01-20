@@ -4,6 +4,8 @@
 
 ![Dashboard Preview](assets/images/dashboard_preview.png)
 
+* [System Architechture Diagram](diagram.mmd)
+
 ## 🚀 ฟีเจอร์หลัก (Key Features)
 
 ### 🌟 สำหรับผู้ใช้งาน (User)
@@ -176,6 +178,6 @@ A: ตรวจสอบว่าเปิด **Allow DLL imports** ใน MT5 �
 
 ---
 
-## 📝 License
+## 📝 ลิขสิทธิ์ (License)
 
 โปรเจคนี้เผยแพร่ภายใต้ลิขสิทธิ์แบบ [MIT License](https://www.google.com/search?q=LICENSE).

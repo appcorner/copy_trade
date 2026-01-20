@@ -18,14 +18,14 @@ graph TD
     end
 
     subgraph MT5_Env ["MetaTrader 5 Environment (Clients)"]
-        MasterEA["🏆 Master EA<br>(MasterSender_V3_TCP)"]:::mt5
-        SlaveEA["🤖 Slave EA<br>(SlaveTCP_V5)"]:::mt5
+        MasterEA["🏆 Master EA<br>(MasterSender_TCP)"]:::mt5
+        SlaveEA["🤖 Slave EA<br>(Slave_TCP)"]:::mt5
     end
 
     %% --- Backend System ---
     subgraph Backend ["⚡ Elixir Phoenix Server (Backend)"]
         
-        subgraph Web_Layer ["Web Layer (Port 4000)"]
+        subgraph Web_Layer ["Web Layer (Port 80)"]
             Endpoint["Phoenix Endpoint<br>(Cowboy/Bandit)"]:::elx
             LiveView_Dash["LiveView Process<br>(DashboardLive)"]:::elx
             LiveView_Admin["LiveView Process<br>(AdminDashboardLive)"]:::elx
@@ -60,7 +60,7 @@ graph TD
     Endpoint <--> LiveView_Admin
 
     %% 2. TCP Connections (Trading)
-    MasterEA ==>|"1.&nbsp;Send Signal (JSON)"| TCPServer
+    MasterEA ==>|"1.&nbsp;Send Signal (TEXT)"| TCPServer
     TCPServer -.-> Worker_Master
     
     SlaveEA <==>|"TCP Connection"| TCPServer

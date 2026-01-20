@@ -125,13 +125,13 @@
 
   /* 🔥 บังคับให้ Label ทุกตัวเป็นสีเข้ม */
   label {
-    @apply text-gray-900 !important; /* สีเกือบดำ */
+    @apply !text-gray-900; /* สีเกือบดำ */
   }
 
   /* 🔥 บังคับให้ Input Field เป็นพื้นขาว ขอบเทา (แก้ที่เป็นพื้นดำอยู่) */
   input[type="text"], 
   input[type="email"], 
   input[type="password"] {
-    @apply bg-white text-gray-900 border-gray-300 !important;
+    @apply !bg-white !text-gray-900 !border-gray-300;
   }
 }

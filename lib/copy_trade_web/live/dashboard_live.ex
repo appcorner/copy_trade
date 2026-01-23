@@ -286,6 +286,7 @@ defmodule CopyTradeWeb.DashboardLive do
                   <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Symbol</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Close Price</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Lot</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Profit</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Time</th>
                 </tr>
@@ -300,6 +301,7 @@ defmodule CopyTradeWeb.DashboardLive do
                        </span>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= pair.close_price %></td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= pair.slave_volume %></td>
                     <td class={"whitespace-nowrap px-3 py-4 text-sm font-bold #{if pair.profit >= 0, do: "text-green-600", else: "text-red-600"}"}>
                       <%= if pair.profit > 0, do: "+", else: "" %><%= pair.profit %> $
                     </td>

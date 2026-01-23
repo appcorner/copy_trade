@@ -4,7 +4,7 @@ defmodule CopyTradeWeb.MasterBoardLive do
 
   def mount(_params, _session, socket) do
     masters = Accounts.list_masters_with_counts()
-    {:ok, assign(socket, masters: masters)}
+    {:ok, assign(socket, masters: masters, page_title: "ทำเนียบผู้นำเทรด (Top Masters)")}
   end
 
   def render(assigns) do

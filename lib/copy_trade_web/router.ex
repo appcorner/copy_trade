@@ -23,23 +23,15 @@ defmodule CopyTradeWeb.Router do
     get "/", PageController, :home
   end
 
-  scope "/", CopyTradeWeb do
-    pipe_through [:browser, :require_authenticated_user]
-
-    # 🔥 เพิ่มบรรทัดนี้: ให้หน้าแรกเป็น DashboardLive
-    live "/dashboard", DashboardLive, :home
-
-    # ... (route อื่นๆ เช่น users/settings) ...
-    live "/admin", AdminDashboardLive
-    live "/masters", MasterBoardLive
-  end
-
   # Other scopes may use custom stacks.
   scope "/api", CopyTradeWeb do
     pipe_through :api
 
     # เพิ่มบรรทัดนี้: เมื่อมีคนยิง POST มาที่ /webhook ให้เรียก WebhookController
     post "/webhook", WebhookController, :create
+
+    # [NEW] API ให้ EA เช็คสถานะ (Follower Check)
+    get "/check_status", Api.FollowerController, :check_status
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
@@ -65,9 +57,15 @@ defmodule CopyTradeWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{CopyTradeWeb.UserAuth, :require_authenticated}] do
+      on_mount: [{CopyTradeWeb.UserAuth, :require_authenticated}, {CopyTradeWeb.UserAuth, :mount_current_path}] do
+
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
+
+      # 🔥 เพิ่ม Dashboard เข้ามาใน Session นี้เลย
+      live "/dashboard", DashboardLive, :home
+      live "/admin", AdminDashboardLive
+      live "/masters", MasterBoardLive
     end
 
     post "/users/update-password", UserSessionController, :update_password

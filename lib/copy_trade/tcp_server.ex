@@ -37,6 +37,9 @@ defmodule CopyTrade.SocketHandler do
   use GenServer
   require Logger
 
+  alias CopyTrade.TradePairContext
+  #TCP -> Save DB (MasterTrade) -> Broadcast -> Worker -> Save DB (TradePair)
+
   # --- Init & Info ---
   def init(socket) do
     :inet.setopts(socket, [active: true])
@@ -120,20 +123,58 @@ defmodule CopyTrade.SocketHandler do
     state
   end
 
-  # 3. MASTER SIGNALS (SIGNAL_OPEN|...)
-  defp handle_command("SIGNAL_OPEN|" <> data, state) do
-    [type, symbol, price_str, ticket_str] = String.split(data, "|")
+  # # 3. MASTER SIGNALS (SIGNAL_OPEN|...)
+  # defp handle_command("SIGNAL_OPEN|" <> data, state) do
+  #   [type, symbol, price_str, vol_str, sl_str, tp_str, ticket_str] = String.split(data, "|")
 
-    payload = %{
-      action: "OPEN_#{type}",
+  #   payload = %{
+  #     action: "OPEN_#{type}",
+  #     symbol: symbol,
+  #     price: String.to_float(price_str),
+  #     volume: String.to_float(vol_str), # ✅ ส่งต่อ volume
+  #     sl: String.to_float(sl_str),      # ✅ ส่งต่อ SL
+  #     tp: String.to_float(tp_str),      # ✅ ส่งต่อ TP
+  #     master_ticket: String.to_integer(ticket_str),
+  #     master_id: state.user_id # 🔥 ระบุคนส่ง (Master)
+  #   }
+
+  #   Logger.info("📡 Signal: #{payload.action} #{symbol} Lot:#{payload.volume}")
+  #   Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+  #   state
+  # end
+  defp handle_command("SIGNAL_OPEN|" <> data, state) do
+    [type, symbol, price_str, vol_str, sl_str, tp_str, ticket_str] = String.split(data, "|")
+
+    # 1. เตรียมข้อมูล
+    params = %{
+      master_id: state.user_id,
+      ticket: String.to_integer(ticket_str),
       symbol: symbol,
+      type: type, # "BUY" / "SELL"
       price: String.to_float(price_str),
-      master_ticket: String.to_integer(ticket_str),
-      master_id: state.user_id # 🔥 ระบุคนส่ง (Master)
+      volume: String.to_float(vol_str),
+      sl: String.to_float(sl_str),
+      tp: String.to_float(tp_str),
+      status: "OPEN"
     }
 
-    Logger.info("📡 Signal Broadcast: #{payload.action} on #{symbol}")
-    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+    # 2. 🔥 บันทึกลง Table "master_trades" ก่อนเลย
+    case TradePairContext.create_master_trade(params) do
+      {:ok, master_trade} ->
+        # 3. ถ้าบันทึกสำเร็จ -> ค่อย Broadcast บอกทุกคน
+        # แนบ id ของ master_trade ไปด้วย!
+        payload = Map.merge(params, %{
+          action: "OPEN_#{type}",
+          master_ticket: params.ticket, # (คงไว้เพื่อให้ Worker โค้ดเก่าไม่งง)
+          master_trade_id: master_trade.id # 🔥 ID สำคัญที่ต้องส่งไป
+        })
+
+        Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+
+      {:error, _changeset} ->
+        Logger.error("❌ Failed to save Master Signal")
+    end
+
     state
   end
 
@@ -151,12 +192,35 @@ defmodule CopyTrade.SocketHandler do
     state
   end
 
+  defp handle_command("CHECK_STATUS", state) do
+    user = CopyTrade.Accounts.get_user!(state.user_id)
+
+    status_msg =
+      if user.following_id do
+        "STATUS_ACTIVE"
+      else
+        "STATUS_INACTIVE"
+      end
+
+    :gen_tcp.send(state.socket, status_msg <> "\n")
+    state
+  end
+
   # 4. SLAVE ACK (ACK_OPEN|...) - EA ตอบกลับว่าเปิดแล้ว
   defp handle_command("ACK_OPEN|" <> data, state) do
-    [master_ticket, slave_ticket] = String.split(data, "|") |> Enum.map(&String.to_integer/1)
+    [master_ticket, slave_ticket, slave_vol_str, slave_type] = String.split(data, "|")
 
-    Logger.info("✅ Order Opened! Master:#{master_ticket} -> Slave:#{slave_ticket}")
-    CopyTrade.TradePairContext.update_slave_ticket(state.user_id, master_ticket, slave_ticket)
+    slave_volume = String.to_float(slave_vol_str) # ✅ แปลงเป็น float
+
+    Logger.info("✅ Order Opened! Master:#{master_ticket} -> Slave:#{slave_ticket} Lot: #{slave_volume}")
+
+    CopyTrade.TradePairContext.update_slave_ticket(
+      state.user_id,
+      String.to_integer(master_ticket),
+      String.to_integer(slave_ticket),
+      slave_volume,
+      slave_type
+    )
     state
   end
 

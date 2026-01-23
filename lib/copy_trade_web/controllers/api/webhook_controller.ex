@@ -19,6 +19,17 @@ defmodule CopyTradeWeb.WebhookController do
     # Broadcast เข้า PubSub
     Phoenix.PubSub.broadcast(CopyTrade.PubSub, "gold_signals", {:trade_signal, signal})
 
+    # payload = %{
+    #   action: "OPEN_#{type}",
+    #   symbol: symbol,
+    #   price: String.to_float(price_str),
+    #   master_ticket: String.to_integer(ticket_str),
+    #   master_id: state.user_id # 🔥 ระบุคนส่ง (Master)
+    # }
+
+    # Logger.info("📡 Webhook Broadcast: #{payload.action} on #{symbol}")
+    # Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+
     conn
     |> put_status(:ok)
     |> json(%{status: "received"})

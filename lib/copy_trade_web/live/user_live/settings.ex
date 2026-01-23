@@ -1,7 +1,7 @@
 defmodule CopyTradeWeb.UserLive.Settings do
   use CopyTradeWeb, :live_view
 
-  on_mount {CopyTradeWeb.UserAuth, :require_sudo_mode}
+  # on_mount {CopyTradeWeb.UserAuth, :require_sudo_mode}
 
   alias CopyTrade.Accounts
 

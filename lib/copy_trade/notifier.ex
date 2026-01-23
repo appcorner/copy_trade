@@ -1,12 +1,14 @@
 defmodule CopyTrade.Notifier do
   require Logger
 
-  # --- Telegram Config ---
-  defp telegram_token, do: System.get_env("TELEGRAM_TOKEN")
-  defp telegram_chat_id, do: System.get_env("TELEGRAM_CHAT_ID")
+# ดึง Config ผ่าน Application config แทน
+  defp config do
+    Application.get_env(:copy_trade, :notifier, [])
+  end
 
-  # --- Discord Config ---
-  defp discord_webhook_url, do: System.get_env("DISCORD_WEBHOOK_URL")
+  defp telegram_token, do: config()[:telegram_token]
+  defp telegram_chat_id, do: config()[:telegram_chat_id]
+  defp discord_webhook_url, do: config()[:discord_webhook_url]
 
   # ฟังก์ชันยิงเข้า Telegram
   def send_telegram(message) do

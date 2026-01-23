@@ -25,9 +25,6 @@ defmodule CopyTradeWeb.UserLive.Login do
           </.header>
         </div>
 
-        <div :if={local_mail_adapter?()} class="alert alert-info">
-           </div>
-
         <.form
           :let={f}
           for={@form}
@@ -118,7 +115,7 @@ defmodule CopyTradeWeb.UserLive.Login do
      |> push_navigate(to: ~p"/users/log-in")}
   end
 
-  defp local_mail_adapter? do
-    Application.get_env(:copy_trade, CopyTrade.Mailer)[:adapter] == Swoosh.Adapters.Local
-  end
+  # defp local_mail_adapter? do
+  #   Application.get_env(:copy_trade, CopyTrade.Mailer)[:adapter] == Swoosh.Adapters.Local
+  # end
 end

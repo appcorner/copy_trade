@@ -332,9 +332,16 @@ defmodule CopyTrade.Accounts do
     |> Ecto.Changeset.change(%{following_id: master_id})
     |> Repo.update()
   end
-  
+
   def get_following_master(user) do
     user = Repo.preload(user, :following)
     user.following
+  end
+
+  # [NEW] ฟังก์ชันสำหรับกดยกเลิกการติดตาม
+  def unfollow_master(user) do
+    user
+    |> Ecto.Changeset.change(%{following_id: nil})
+    |> Repo.update()
   end
 end

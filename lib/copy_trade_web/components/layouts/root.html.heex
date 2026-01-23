@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title suffix=" · CopyTradePro">
-      <%= assigns[:page_title] || "Home" %>
+      <%= assigns[:page_title] || "หน้าแรก (Home)" %>
     </.live_title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -54,8 +54,11 @@
                 Home
               </a>
               <%= if @current_scope do %>
-                <.link navigate={~p"/dashboard"} class="inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-900">
+                <.link navigate={~p"/dashboard"} class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                   Dashboard
+                </.link>
+                <.link navigate={~p"/masters"} class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                  Masters
                 </.link>
               <% end %>
             </div>

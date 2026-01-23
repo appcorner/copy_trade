@@ -90,18 +90,24 @@ defmodule CopyTrade.FollowerWorker do
       # 2. บันทึก DB สถานะ PENDING
       db_params = %{
         user_id: state.user_id,
+        master_id: signal.master_id,       # 🔥 ส่ง master_id
+        master_trade_id: signal.master_trade_id, # 🔥 รับ ID มาจาก PubSub
         master_ticket: signal.master_ticket,
         slave_ticket: 0,
         symbol: signal.symbol,
+        type: type,
         status: "PENDING",
-        open_price: signal.price
+        open_price: signal.price,
+        volume: signal.volume,
+        sl: signal.sl,
+        tp: signal.tp
       }
 
-      case TradePairContext.create_pair(db_params) do
+      case TradePairContext.create_trade_pair(db_params) do
         {:ok, _pair} ->
           # 3. สร้าง Command ส่งไป TCP
-          # Format: CMD_OPEN|BUY|SYMBOL|PRICE|MASTER_TICKET
-          command = "CMD_OPEN|#{type}|#{signal.symbol}|#{signal.price}|#{signal.master_ticket}"
+          # Format: CMD_OPEN|BUY|SYMBOL|PRICE|VOLUME|SL|TP|MASTER_TICKET
+          command = "CMD_OPEN|#{type}|#{signal.symbol}|#{signal.price}|#{signal.volume}|#{signal.sl}|#{signal.tp}|#{signal.master_ticket}"
 
           send_tcp_command(state.user_id, command)
           Logger.info("🚀 [#{state.user_id}] Sent OPEN to Slave: #{command}")

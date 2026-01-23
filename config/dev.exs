@@ -90,3 +90,8 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+config :copy_trade, :notifier,
+  telegram_token: "7972950662:AAGFbtFFfgcVqMG9WKIyqig49dYkYclNZWo",
+  telegram_chat_id: "6111005037",
+  discord_webhook_url: ""

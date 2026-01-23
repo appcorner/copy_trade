@@ -245,6 +245,14 @@ defmodule CopyTradeWeb.UserAuth do
     end
   end
 
+  # 🔥 เพิ่มฟังก์ชันนี้: ดึง URL ปัจจุบันมาใส่ใน assign :current_path ทุกครั้งที่เปลี่ยนหน้า
+  def on_mount(:mount_current_path, _params, _session, socket) do
+    {:cont, Phoenix.LiveView.attach_hook(socket, :track_path, :handle_params, fn
+      _params, url, socket ->
+        {:cont, Phoenix.Component.assign(socket, :current_path, URI.parse(url).path)}
+    end)}
+  end
+
   defp mount_current_scope(socket, session) do
     Phoenix.Component.assign_new(socket, :current_scope, fn ->
       {user, _} =

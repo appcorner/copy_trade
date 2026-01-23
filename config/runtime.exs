@@ -124,4 +124,9 @@ if config_env() == :prod do
   config :copy_trade, CopyTrade.Mailer,
     adapter: Swoosh.Adapters.Logger,
     level: :info
+
+  config :copy_trade, :notifier,
+    telegram_token: System.get_env("TELEGRAM_TOKEN"),
+    telegram_chat_id: System.get_env("TELEGRAM_CHAT_ID"),
+    discord_webhook_url: System.get_env("DISCORD_WEBHOOK_URL")
 end

@@ -1,5 +1,8 @@
 _build
 deps
+mt5
+mql
+docker-dev
 .git
 .env
 *.db

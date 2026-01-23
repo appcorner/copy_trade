@@ -135,7 +135,7 @@ defmodule CopyTradeWeb.DashboardLive do
 
           <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6">
              <h2 class="text-lg font-bold text-gray-800 mb-2">📡 การเชื่อมต่อ EA</h2>
-             <p class="text-sm text-gray-500 mb-4">API Key สำหรับ "MasterSender" EA</p>
+             <p class="text-sm text-gray-500 mb-4">API Key สำหรับ "MasterSenderTCP" EA</p>
              <div class="bg-gray-100 rounded-lg p-3 font-mono text-sm text-gray-700 break-all border border-gray-200 select-all">
                 <%= @api_key %>
              </div>
@@ -158,6 +158,7 @@ defmodule CopyTradeWeb.DashboardLive do
                   <div>
                     <p class="text-sm text-green-800 font-bold">เชื่อมต่อกับ Master แล้ว</p>
                     <p class="text-lg font-bold text-gray-900"><%= @current_master.name %></p>
+                    <p class="text-xs text-gray-500"><%= @current_master.master_token %></p>
                   </div>
                 </div>
                 <button phx-click="unfollow" data-confirm="ยืนยันการเลิกติดตาม?" class="bg-white text-red-600 hover:text-red-700 border border-red-200 text-xs font-bold py-2 px-3 rounded shadow-sm">

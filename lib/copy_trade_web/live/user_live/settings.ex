@@ -9,6 +9,45 @@ defmodule CopyTradeWeb.UserLive.Settings do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
+
+<div class="divide-y divide-zinc-100">
+  <div class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
+    <div>
+      <h2 class="text-base font-semibold leading-7 text-zinc-900">API Key & Connection</h2>
+      <p class="mt-1 text-sm leading-6 text-zinc-600">
+        กุญแจสำคัญสำหรับเชื่อมต่อบัญชีเทรดของคุณเข้ากับระบบ
+      </p>
+    </div>
+
+    <div class="md:col-span-2">
+      <div class="rounded-xl bg-zinc-50 p-6 shadow-sm ring-1 ring-inset ring-zinc-200">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-bold text-zinc-900 flex items-center gap-2">
+            🔑 API Key ของคุณ
+          </h3>
+          <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Active</span>
+        </div>
+
+        <div class="relative">
+          <code class="block w-full rounded-lg bg-white px-4 py-3 text-sm font-mono text-indigo-600 shadow-sm ring-1 ring-inset ring-zinc-300 select-all break-all">
+            <%= @current_scope.user.api_key %>
+          </code>
+          <p class="mt-2 text-xs text-zinc-500 text-right">
+            (ดับเบิลคลิกเพื่อเลือกทั้งหมด)
+          </p>
+        </div>
+
+        <div class="mt-4 border-t border-zinc-200 pt-4">
+          <p class="text-xs text-zinc-600">
+            <strong>วิธีใช้งาน:</strong> นำรหัสนี้ไปวางในช่อง <code class="text-xs font-bold bg-zinc-200 px-1 rounded">คีย์ของ <%= if(@current_scope.user.role == "master", do: "Master", else: "Follower") %></code> ของ EA SlaveTCP บน MT5
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
       <div class="text-center">
         <.header>
           ตั้งค่าบัญชี

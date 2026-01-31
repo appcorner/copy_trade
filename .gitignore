@@ -37,3 +37,4 @@ npm-debug.log
 
 /postgres_data/
 docker-dev/postgres_data/
+.env

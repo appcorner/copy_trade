@@ -68,7 +68,9 @@ defmodule CopyTrade.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       # {:bcrypt_elixir, "~> 3.0"},
-      {:comeonin, "~> 5.3"}
+      {:comeonin, "~> 5.3"},
+      {:resend, "~> 0.4.0"},
+      {:dotenvy, "~> 0.8.0", only: [:dev, :test]}
     ]
   end
 

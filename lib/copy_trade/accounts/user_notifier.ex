@@ -5,12 +5,13 @@ defmodule CopyTrade.Accounts.UserNotifier do
   alias CopyTrade.Accounts.User
   alias CopyTrade.Notifier
 
+
   # Delivers the email using the application mailer.
   defp deliver(recipient, subject, body) do
     email =
       new()
       |> to(recipient)
-      |> from({"CopyTrade", "appcorner@yahoo.com"})
+      |> from(get_sender())
       |> subject(subject)
       |> text_body(body)
 
@@ -18,19 +19,29 @@ defmodule CopyTrade.Accounts.UserNotifier do
       {:ok, email}
     end
   end
+  
+  defp get_sender do
+    config = Application.get_env(:copy_trade, :email_sender)
+    {config[:name], config[:email]}
+  end
 
-  @doc """
-  Deliver instructions to update a user email.
-  """
-  def deliver_update_email_instructions(user, url) do
+  defp notify(title, email, url) do
     message = """
-    🚀 **Update email Link Requested**
-    User: #{user.email}
+    🚀 **#{title}**
+    User: #{email}
     Link: #{url}
     """
 
     Notifier.send_telegram(message)
     Notifier.send_discord(message)
+  end
+
+
+  @doc """
+  Deliver instructions to update a user email.
+  """
+  def deliver_update_email_instructions(user, url) do
+    notify("Update email Link Requested", user.email, url)
 
     deliver(user.email, "Update email instructions", """
 
@@ -59,14 +70,7 @@ defmodule CopyTrade.Accounts.UserNotifier do
   end
 
   defp deliver_magic_link_instructions(user, url) do
-    message = """
-    🚀 **Log in Link Requested**
-    User: #{user.email}
-    Link: #{url}
-    """
-
-    Notifier.send_telegram(message)
-    Notifier.send_discord(message)
+    notify("Log in Link Requested", user.email, url)
 
     deliver(user.email, "Log in instructions", """
 
@@ -85,14 +89,7 @@ defmodule CopyTrade.Accounts.UserNotifier do
   end
 
   defp deliver_confirmation_instructions(user, url) do
-    message = """
-    🚀 **Confirmation Link Requested**
-    User: #{user.email}
-    Link: #{url}
-    """
-
-    Notifier.send_telegram(message)
-    Notifier.send_discord(message)
+    notify("Confirmation Link Requested", user.email, url)
 
     deliver(user.email, "Confirmation instructions", """
 

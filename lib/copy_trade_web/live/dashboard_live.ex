@@ -8,12 +8,16 @@ defmodule CopyTradeWeb.DashboardLive do
   def mount(_params, _session, socket) do
     user = socket.assigns.current_scope.user
 
+    # เพิ่มการ Subscribe ช่องราคา
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(CopyTrade.PubSub, "market_prices") #
+      # [cite_start]Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals") # [cite: 1]
+    end
+
     socket =
-      if user.role == "master" do
-        assign_master_data(socket, user)
-      else
-        assign_follower_data(socket, user)
-      end
+      socket
+      |> assign(prices: %{}) # ป้องกัน Error key :prices not found
+      |> (fn s -> if user.role == "master", do: assign_master_data(s, user), else: assign_follower_data(s, user) end).()
 
     {:ok, socket}
   end
@@ -52,11 +56,27 @@ defmodule CopyTradeWeb.DashboardLive do
       # Assign data เข้าหน้าจอ
       active_pairs: active_pairs,
       closed_pairs: closed_pairs,
-      total_profit: total_profit
+      total_profit: total_profit,
+      prices: %{}
     )
   end
 
-  # 🔥 เพิ่ม handle_info เพื่อรับ Signal แล้ว Refresh ข้อมูลเอง
+  @impl true
+  def handle_info(%{event: "price_update", payload: payload}, socket) do
+    # IO.inspect(payload, label: ">>> LIVEVIEW RECEIVED PRICE") # เพิ่มบรรทัดนี้
+    # 1. ดึง Map ของราคาทั้งหมดที่มีอยู่ใน Socket ตอนนี้ (ถ้าไม่มีให้เป็น Map ว่าง)
+    current_prices = socket.assigns.prices
+    # IO.inspect(current_prices, label: ">>> current_prices")
+
+    # 2. อัปเดตราคาสัญลักษณ์ที่เพิ่งส่งมาใหม่เข้าไปใน Map
+    # เราใช้ Key เป็น {master_id, symbol} เพื่อให้ตรงกับโครงสร้างใน Context
+    updated_prices = Map.put(current_prices, {payload.master_id, payload.symbol}, payload)
+    # IO.inspect(updated_prices, label: ">>> updated_prices")
+
+    # 3. Assign ค่ากลับลงใน Socket เพื่อให้ LiveView ทำการ Re-render ส่วนที่เกี่ยวข้อง
+    {:noreply, assign(socket, :prices, updated_prices)}
+  end
+
   @impl true
   def handle_info(_msg, socket) do
      # เมื่อมี Signal เข้ามา (ไม่ว่าจะ Open หรือ Close) ให้ดึงข้อมูลใหม่
@@ -161,7 +181,8 @@ defmodule CopyTradeWeb.DashboardLive do
                     <p class="text-xs text-gray-500"><%= @current_master.master_token %></p>
                   </div>
                 </div>
-                <button phx-click="unfollow" data-confirm="ยืนยันการเลิกติดตาม?" class="bg-white text-red-600 hover:text-red-700 border border-red-200 text-xs font-bold py-2 px-3 rounded shadow-sm">
+                <button phx-click="unfollow" data-confirm="ยืนยันการเลิกติดตาม?"
+                  class="w-full sm:w-auto bg-white text-red-600 hover:text-red-700 border border-red-200 text-xs font-bold py-2 px-4 rounded shadow-sm transition-colors">
                   Unfollow
                 </button>
               </div>
@@ -196,7 +217,7 @@ defmodule CopyTradeWeb.DashboardLive do
             </h3>
           </div>
 
-          <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+          <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-300">
               <thead class="bg-gray-50">
                 <tr>
@@ -206,6 +227,7 @@ defmodule CopyTradeWeb.DashboardLive do
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Price / SL-TP</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Time</th>
+                  <th class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">Profit ($)</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
@@ -267,6 +289,14 @@ defmodule CopyTradeWeb.DashboardLive do
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-400">
                       <%= format_bkk(pair.inserted_at, "%H:%M:%S") %>
                     </td>
+
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-right font-mono font-bold">
+                      <%!-- เรียกใช้ Context ที่เราเตรียมไว้เพื่อคำนวณกำไรสดๆ --%>
+                      <% floating_pl = TradePairContext.calculate_floating_profit(pair, @prices) %>
+                      <span class={if floating_pl >= 0, do: "text-green-600", else: "text-red-600"}>
+                        <%= if floating_pl > 0, do: "+", else: "" %><%= :erlang.float_to_binary(floating_pl, decimals: 2) %> $
+                      </span>
+                    </td>
                   </tr>
                 <% end %>
                 <%= if @active_pairs == [] do %>
@@ -279,7 +309,7 @@ defmodule CopyTradeWeb.DashboardLive do
 
         <div class="mb-12">
           <h3 class="text-lg font-bold text-gray-900 mb-4">📜 ประวัติการเทรดล่าสุด</h3>
-          <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+          <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-300">
               <thead class="bg-gray-50">
                 <tr>

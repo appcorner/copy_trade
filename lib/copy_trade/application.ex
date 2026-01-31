@@ -7,6 +7,8 @@ defmodule CopyTrade.Application do
 
   @impl true
   def start(_type, _args) do
+    :ets.new(:market_prices, [:set, :public, :named_table])
+    
     children = [
       CopyTradeWeb.Telemetry,
       CopyTrade.Repo,

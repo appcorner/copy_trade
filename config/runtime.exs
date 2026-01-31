@@ -1,5 +1,14 @@
 import Config
 
+if config_env() in [:dev, :test] do
+  try do
+    Dotenvy.source!([".env", ".env.#{config_env()}"])
+    |> Enum.each(fn {k, v} -> System.put_env(k, v) end)
+  rescue
+    _ -> :ok # ถ้าไม่มีไฟล์ .env ก็ปล่อยผ่าน (ไม่ error)
+  end
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -22,6 +31,19 @@ end
 
 config :copy_trade, CopyTradeWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+
+config :copy_trade, CopyTrade.Mailer,
+  adapter: Resend.Swoosh.Adapter,
+  api_key: System.get_env("RESEND_API_KEY")
+
+config :copy_trade, :email_sender,
+  name: System.get_env("MAIL_SENDER_NAME") || "CopyTrade System",
+  email: System.get_env("MAIL_SENDER_EMAIL") || "onboarding@resend.dev"
+
+config :copy_trade, :notifier,
+  telegram_token: System.get_env("TELEGRAM_TOKEN"),
+  telegram_chat_id: System.get_env("TELEGRAM_CHAT_ID"),
+  discord_webhook_url: System.get_env("DISCORD_WEBHOOK_URL")
 
 if config_env() == :prod do
   database_url =
@@ -121,9 +143,11 @@ if config_env() == :prod do
   #     config :swoosh, :api_client, Swoosh.ApiClient.Req
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
-  config :copy_trade, CopyTrade.Mailer,
-    adapter: Swoosh.Adapters.Logger,
-    level: :info
+  # config :copy_trade, CopyTrade.Mailer,
+  #   # adapter: Swoosh.Adapters.Logger,
+  #   # level: :info
+  #   adapter: Resend.Swoosh.Adapter,
+  #   api_key: System.get_env("RESEND_API_KEY")
 
   config :copy_trade, :notifier,
     telegram_token: System.get_env("TELEGRAM_TOKEN"),

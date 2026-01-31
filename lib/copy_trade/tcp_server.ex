@@ -123,25 +123,52 @@ defmodule CopyTrade.SocketHandler do
     state
   end
 
-  # # 3. MASTER SIGNALS (SIGNAL_OPEN|...)
-  # defp handle_command("SIGNAL_OPEN|" <> data, state) do
-  #   [type, symbol, price_str, vol_str, sl_str, tp_str, ticket_str] = String.split(data, "|")
+  defp handle_command("MASTER_SNAPSHOT:" <> tickets_str, state) do
+    actual_tickets =
+      tickets_str
+      |> String.split(",")
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.map(&String.to_integer/1)
+    IO.inspect(actual_tickets, label: ">>> master actual_tickets")
 
-  #   payload = %{
-  #     action: "OPEN_#{type}",
-  #     symbol: symbol,
-  #     price: String.to_float(price_str),
-  #     volume: String.to_float(vol_str), # ✅ ส่งต่อ volume
-  #     sl: String.to_float(sl_str),      # ✅ ส่งต่อ SL
-  #     tp: String.to_float(tp_str),      # ✅ ส่งต่อ TP
-  #     master_ticket: String.to_integer(ticket_str),
-  #     master_id: state.user_id # 🔥 ระบุคนส่ง (Master)
-  #   }
+    # กวาดล้างไม้ Master และ Slave ที่ค้างอยู่
+    CopyTrade.TradePairContext.reconcile_master_orders(state.user_id, actual_tickets)
 
-  #   Logger.info("📡 Signal: #{payload.action} #{symbol} Lot:#{payload.volume}")
-  #   Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
-  #   state
-  # end
+    # กระจายสัญญาณให้ทุกหน้าจอ Refresh
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
+
+    state
+  end
+
+  defp handle_command("SLAVE_SNAPSHOT:" <> tickets_str, state) do
+    # แปลง "123,456" เป็น [123, 456]
+    actual_tickets =
+      tickets_str
+      |> String.split(",")
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.map(&String.to_integer/1)
+    IO.inspect(actual_tickets, label: ">>> slave actual_tickets")
+
+    # รันการ Sync และรับรายชื่อไม้ผีกลับมา
+    {:ok, zombies} = CopyTrade.TradePairContext.reconcile_slave_orders(state.user_id, actual_tickets)
+
+    # สั่ง EA ปิดไม้ที่ไม่ได้มาจากการ Copy ทันที
+    Enum.each(zombies, fn ticket ->
+      # ส่งคำสั่งกลับไปหา EA: "CMD_CLOSE_EXTERNAL|ticket"
+      msg = "CMD_CLOSE_EXTERNAL|#{ticket}\n"
+      IO.inspect(ticket, label: ">>> closing slave ticket")
+      :gen_tcp.send(state.socket, msg)
+    end)
+
+    :gen_tcp.send(state.socket, "SNAPSHOT_OK\n")
+
+    # แจ้งหน้าจอให้ Refresh ข้อมูลล่าสุด
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
+
+    state
+  end
+
+  # 3. SIGNAL_OPEN|TYPE|SYMBOL|PRICE|VOLUME|SL|TP|TICKET
   defp handle_command("SIGNAL_OPEN|" <> data, state) do
     [type, symbol, price_str, vol_str, sl_str, tp_str, ticket_str] = String.split(data, "|")
 
@@ -179,16 +206,59 @@ defmodule CopyTrade.SocketHandler do
   end
 
   defp handle_command("SIGNAL_CLOSE|" <> data, state) do
-    [symbol, ticket_str] = String.split(data, "|")
+    [symbol, ticket_str, price_str, profit_str] = String.split(data, "|")
+
+    master_id = state.user_id
+    ticket = String.to_integer(ticket_str)
+    close_price = String.to_float(price_str)
+    profit = String.to_float(profit_str)
+
+    # เรียกใช้ Context เพื่ออัปเดตสถานะทั้ง Master และ Follower ไปพร้อมกัน
+    case CopyTrade.TradePairContext.close_master_and_followers(master_id, ticket, close_price, profit) do
+      {:ok, _} ->
+        payload = %{
+          action: "CLOSE",
+          symbol: symbol,
+          master_ticket: ticket,
+          master_id: master_id,
+          close_price: close_price,
+          profit: profit
+        }
+        Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+      {:error, _} -> Logger.error("❌ Failed to close Master Signal")
+    end
+
+    state
+  end
+
+  # ตัวอย่างการรับ CMD_PRICE|SYMBOL|BID|ASK
+  defp handle_command("CMD_PRICE|" <> data, state) do
+    # IO.inspect(data, label: ">>> RECEIVED PRICE FROM EA")
+    [symbol, bid_str, ask_str] = String.split(data, "|")
+
+    # IO.inspect(state, label: ">>> state in CMD_PRICE")
+    master_id = if is_binary(state.user_id), do: String.to_integer(state.user_id), else: state.user_id
+
+    bid = String.to_float(bid_str)
+    ask = String.to_float(ask_str)
 
     payload = %{
-      action: "CLOSE",
+      master_id: master_id,
       symbol: symbol,
-      master_ticket: String.to_integer(ticket_str),
-      master_id: state.user_id
+      bid: bid,
+      ask: ask
     }
 
-    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+    # 1. บันทึกลง ETS (ทับของเก่าทันที)
+    :ets.insert(:market_prices, {{master_id, symbol}, %{bid: bid, ask: ask}})
+
+    # Logger.info("Master Prices #{symbol}:#{inspect(%{bid: bid, ask: ask})}")
+
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "market_prices", %{
+      event: "price_update",
+      payload: payload
+    })
+
     state
   end
 

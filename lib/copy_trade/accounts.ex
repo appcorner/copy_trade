@@ -7,6 +7,7 @@ defmodule CopyTrade.Accounts do
   alias CopyTrade.Repo
 
   alias CopyTrade.Accounts.{User, UserToken, UserNotifier}
+  alias CopyTrade.MasterTrade
 
   ## Database getters
 
@@ -313,6 +314,7 @@ defmodule CopyTrade.Accounts do
       left_join: f in User, on: f.following_id == u.id,
       group_by: u.id,
       select: %{
+        master_id: u.id,
         name: u.name,
         token: u.master_token,
         follower_count: count(f.id)
@@ -343,5 +345,14 @@ defmodule CopyTrade.Accounts do
     user
     |> Ecto.Changeset.change(%{following_id: nil})
     |> Repo.update()
+  end
+
+  def get_master_total_profit(master_user_id) do
+    # รวมกำไรจากไม้ที่สถานะเป็น "CLOSED" ของ Master คนนี้
+    query = from t in MasterTrade,
+              where: t.master_id == ^master_user_id and t.status == "CLOSED",
+              select: sum(t.profit)
+
+    Repo.one(query) || 0.0
   end
 end

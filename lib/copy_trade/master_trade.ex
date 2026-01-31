@@ -13,6 +13,7 @@ defmodule CopyTrade.MasterTrade do
     field :status, :string
     field :close_price, :float
     field :profit, :float
+    field :contract_size, :float, default: 100000.0
 
     # Relation
     belongs_to :master, CopyTrade.Accounts.User, foreign_key: :master_id
@@ -23,7 +24,7 @@ defmodule CopyTrade.MasterTrade do
 
   def changeset(trade, attrs) do
     trade
-    |> cast(attrs, [:ticket, :symbol, :type, :price, :volume, :sl, :tp, :status, :master_id, :close_price, :profit])
+    |> cast(attrs, [:ticket, :symbol, :type, :price, :volume, :sl, :tp, :status, :master_id, :close_price, :profit, :contract_size])
     |> validate_required([:ticket, :symbol, :type, :master_id])
   end
 end

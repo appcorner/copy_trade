@@ -36,7 +36,8 @@ services:
       DATABASE_URL: "ecto://postgres:mysecretpassword@db/copy_trade_prod" # 👈 สังเกต @db คือชื่อ service ด้านบน
       TELEGRAM_TOKEN: "TELEGRAM_TOKEN_HERE"
       TELEGRAM_CHAT_ID: "TELEGRAM_CHAT_ID_HERE"
-      #DISCORD_WEBHOOK_URL: "DISCORD_WEBHOOK_URL_HERE"
+      DISCORD_WEBHOOK_URL: "DISCORD_WEBHOOK_URL_HERE"
+      RESEND_API_KEY: "RESEND_API_KEY_HERE"
     volumes:
       - ./uploads:/app/uploads # เผื่อมีการอัพโหลดไฟล์
 

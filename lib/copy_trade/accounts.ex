@@ -6,7 +6,7 @@ defmodule CopyTrade.Accounts do
   import Ecto.Query, warn: false
   alias CopyTrade.Repo
 
-  alias CopyTrade.Accounts.{User, UserToken, UserNotifier}
+  alias CopyTrade.Accounts.{User, UserToken, UserNotifier, UserSymbol}
   alias CopyTrade.MasterTrade
 
   ## Database getters
@@ -354,5 +354,23 @@ defmodule CopyTrade.Accounts do
               select: sum(t.profit)
 
     Repo.one(query) || 0.0
+  end
+
+  def upsert_user_symbol(user_id, symbol, contract_size, digits) do
+    attrs = %{user_id: user_id, symbol: symbol, contract_size: contract_size, digits: digits}
+
+    case Repo.get_by(UserSymbol, user_id: user_id, symbol: symbol) do
+      nil -> %UserSymbol{}
+      existing -> existing
+    end
+    |> UserSymbol.changeset(attrs)
+    |> Repo.insert_or_update()
+  end
+
+  @doc """
+  ดึงข้อมูล Symbol ทั้งหมดของทุก User เพื่อใช้ในการทำ Warm-up Cache
+  """
+  def list_all_user_symbols do
+    Repo.all(UserSymbol)
   end
 end

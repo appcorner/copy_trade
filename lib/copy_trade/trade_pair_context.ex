@@ -7,6 +7,7 @@ defmodule CopyTrade.TradePairContext do
   alias CopyTrade.Repo
   alias CopyTrade.TradePair # (ต้องสร้าง Schema นี้ด้วย เดี๋ยวผมให้ code ต่อไป)
   alias CopyTrade.MasterTrade
+  alias CopyTrade.Cache.SymbolCache
 
   # 1. สร้างคู่เทรดใหม่ (สถานะ PENDING)
   def create_trade_pair(attrs) do
@@ -206,6 +207,8 @@ defmodule CopyTrade.TradePairContext do
     # ดึงข้อมูล Master เพื่อเอา user_id มาเป็น Key
     master = trade_pair.master_trade
 
+    slave_symbol_info = SymbolCache.get_info(trade_pair.user_id, master.symbol) || %{contract_size: 100000.0, digits: 5}
+
     # ตรวจสอบว่าใน Map 'prices' มีราคาของ Master คนนี้และ Symbol นี้อยู่หรือไม่
     case Map.get(prices, {master.master_id, master.symbol}) do
       nil ->
@@ -213,7 +216,7 @@ defmodule CopyTrade.TradePairContext do
 
       price_data ->
         # ส่งไปคำนวณตามสูตรคณิตศาสตร์
-        do_calc_pl(trade_pair, master.contract_size, price_data)
+        do_calc_pl(trade_pair, slave_symbol_info.contract_size, price_data)
     end
   end
 
@@ -226,11 +229,11 @@ defmodule CopyTrade.TradePairContext do
     case trade.slave_type do
       "BUY" ->
         # สูตร: (ราคา Bid ปัจจุบัน - ราคาเปิด) * Lot * ContractSize
-        (bid - trade.open_price) * trade.slave_volume * contract_size / 1000.0
+        (bid - trade.open_price) * trade.slave_volume * contract_size
 
       "SELL" ->
         # สูตร: (ราคาเปิด - ราคา Ask ปัจจุบัน) * Lot * ContractSize
-        (trade.open_price - ask) * trade.slave_volume * contract_size / 1000.0
+        (trade.open_price - ask) * trade.slave_volume * contract_size
       _ ->
         0.0
     end

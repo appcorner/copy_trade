@@ -8,7 +8,7 @@ defmodule CopyTrade.Application do
   @impl true
   def start(_type, _args) do
     :ets.new(:market_prices, [:set, :public, :named_table])
-    
+
     children = [
       CopyTradeWeb.Telemetry,
       CopyTrade.Repo,
@@ -23,6 +23,9 @@ defmodule CopyTrade.Application do
 
       # 🔥 2. เพิ่ม Registry ใหม่ (สำหรับ Socket Connection)
       {Registry, keys: :unique, name: CopyTrade.SocketRegistry},
+
+      # เพิ่มตัวจัดการ Cache เข้าไปในลำดับต้นๆ
+      {CopyTrade.Cache.SymbolCache, name: CopyTrade.Cache.SymbolCache},
 
       # 3. เพิ่ม TCP Server ที่เรากำลังจะสร้าง
       {CopyTrade.TCPServer, port: 5001},

@@ -231,6 +231,24 @@ defmodule CopyTrade.SocketHandler do
     state
   end
 
+  defp handle_command("CMD_INIT_SYMBOL|" <> data, state) do
+    [symbol, c_size, digits] = String.split(data, "|")
+
+    c_size_float = String.to_float(c_size)
+    digits_int = String.to_integer(digits)
+
+    # 1. Async Update ลง DB (ไม่ต้องรอผล)
+    Task.start(fn ->
+      CopyTrade.Accounts.upsert_user_symbol(state.user_id, symbol, c_size_float, digits_int)
+    end)
+
+    # 2. Update ลง Cache ทันที
+    CopyTrade.Cache.SymbolCache.set_info(state.user_id, symbol, c_size_float, digits_int)
+
+    IO.puts "Cache Updated for User #{state.user_id} - #{symbol}"
+    state
+  end
+
   # ตัวอย่างการรับ CMD_PRICE|SYMBOL|BID|ASK
   defp handle_command("CMD_PRICE|" <> data, state) do
     # IO.inspect(data, label: ">>> RECEIVED PRICE FROM EA")

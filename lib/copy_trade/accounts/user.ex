@@ -19,6 +19,8 @@ defmodule CopyTrade.Accounts.User do
     # ความสัมพันธ์: 1 คน ตามได้ 1 Master (ในเวอร์ชั่นนี้)
     belongs_to :following, CopyTrade.Accounts.User, foreign_key: :following_id
 
+    has_many :user_symbols, CopyTrade.Accounts.UserSymbol
+
     timestamps(type: :utc_datetime)
   end
 

@@ -24,6 +24,8 @@ defmodule CopyTrade.Application do
       # 🔥 2. เพิ่ม Registry ใหม่ (สำหรับ Socket Connection)
       {Registry, keys: :unique, name: CopyTrade.SocketRegistry},
 
+      {Registry, keys: :unique, name: CopyTrade.Registry},
+
       # เพิ่มตัวจัดการ Cache เข้าไปในลำดับต้นๆ
       {CopyTrade.Cache.SymbolCache, name: CopyTrade.Cache.SymbolCache},
 

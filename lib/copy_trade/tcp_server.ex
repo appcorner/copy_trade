@@ -60,6 +60,22 @@ defmodule CopyTrade.SocketHandler do
     {:stop, :normal, state}
   end
 
+  # 1. รับสัญญาณแบบมหาชน (โหมด PUBSUB)
+  def handle_info({:signal, payload}, state) do
+    # แปลงข้อมูลเป็น string และส่งออกไปหา EA ผ่าน TCP [cite: 5]
+    msg = build_ea_message(payload)
+    if msg != "", do: :gen_tcp.send(state.socket, msg <> "\n")
+    {:noreply, state}
+  end
+
+  # 2. รับสัญญาณแบบกระซิบ (โหมด 1TO1 จากคู่แท้)
+  def handle_info({:direct_signal, payload}, state) do
+    # ทำเหมือนกัน แต่ช่องทางนี้จะเร็วกว่าเพราะส่งตรงถึง PID
+    msg = build_ea_message(payload)
+    if msg != "", do: :gen_tcp.send(state.socket, msg <> "\n")
+    {:noreply, state}
+  end
+
   # --- Handle Send Command ---
 
   # API ให้คนอื่นเรียกใช้
@@ -100,6 +116,9 @@ defmodule CopyTrade.SocketHandler do
         broadcast_status(user_id, :online)
         :gen_tcp.send(state.socket, "AUTH_OK\n")
 
+        # เมื่อ Login สำเร็จ ให้ลงทะเบียน PID ของ Socket นี้ไว้ในชื่อ user_id
+        Registry.register(CopyTrade.Registry, "user:#{user_id}", :active)
+
         %{state | user_id: user_id}
     end
   end
@@ -109,16 +128,34 @@ defmodule CopyTrade.SocketHandler do
     token = String.trim(token)
     case CopyTrade.Accounts.get_master_by_token(token) do
       nil ->
-        :gen_tcp.send(state.socket, "ERROR:INVALID_TOKEN\n")
+        :gen_tcp.send(state.socket, "ERROR:MASTER_NOT_FOUND\n")
       master ->
-        # Link DB
-        CopyTrade.Accounts.link_follower_to_master(state.user_id, master.id)
-        Logger.info("🔗 [#{state.user_id}] Subscribed to Master ID: #{master.id}")
+        # ถ้า Master อยู่ในโหมด 1TO1 ให้ทำการ "จับคู่แท้" ทันที
+        if master.copy_mode == "1TO1" do
+          partner_id = if is_binary(state.user_id), do: String.to_integer(state.user_id), else: state.user_id
+          if master.partner_id == nil || master.partner_id == partner_id do
+            # ยอมให้ผูกได้ถ้ายังไม่มีคู่ หรือเป็นคนเดิม
+            CopyTrade.Accounts.bind_partner(master.id, state.user_id)
+            Logger.info("💑 Exclusive Pair Bound: Master #{master.id} <-> Slave #{state.user_id}")
+            :gen_tcp.send(state.socket, "SUBSCRIBE_OK\n")
+          else
+            # ถ้ามีคนอื่นจองอยู่แล้ว ส่ง Error บอก Slave คนใหม่
+            :gen_tcp.send(state.socket, "ERROR:MASTER_ALREADY_HAS_PARTNER\n")
+          end
+        else
+          # ถ้าโหมด PUBSUB ให้ยกเลิกความสัมพันธ์คู่แท้ (ถ้ามี)
+          CopyTrade.Accounts.unbind_partner(master.id)
+          Logger.info("💔 Exclusive Pair Unbound: Master #{master.id}")
 
-        # Notify Worker
-        update_worker_following(state.user_id, master.id)
+          # Link DB
+          CopyTrade.Accounts.link_follower_to_master(state.user_id, master.id)
+          Logger.info("🔗 [#{state.user_id}] Subscribed to Master ID: #{master.id}")
 
-        :gen_tcp.send(state.socket, "SUBSCRIBE_OK\n")
+          # Notify Worker
+          update_worker_following(state.user_id, master.id)
+
+          :gen_tcp.send(state.socket, "SUBSCRIBE_OK\n")
+        end
     end
     state
   end
@@ -133,6 +170,8 @@ defmodule CopyTrade.SocketHandler do
 
     # กวาดล้างไม้ Master และ Slave ที่ค้างอยู่
     CopyTrade.TradePairContext.reconcile_master_orders(state.user_id, actual_tickets)
+
+    :gen_tcp.send(state.socket, "SNAPSHOT_OK\n")
 
     # กระจายสัญญาณให้ทุกหน้าจอ Refresh
     Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
@@ -196,7 +235,10 @@ defmodule CopyTrade.SocketHandler do
           master_trade_id: master_trade.id # 🔥 ID สำคัญที่ต้องส่งไป
         })
 
-        Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+        # Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+        # 🔥 เปลี่ยนจาก Phoenix.PubSub.broadcast เป็นการใช้ Router
+        # เพื่อให้ระบบตัดสินใจเองว่าจะส่งแบบ PUBSUB หรือ 1TO1
+        CopyTrade.TradeSignalRouter.dispatch(state.user_id, payload)
 
       {:error, _changeset} ->
         Logger.error("❌ Failed to save Master Signal")
@@ -224,8 +266,27 @@ defmodule CopyTrade.SocketHandler do
           close_price: close_price,
           profit: profit
         }
-        Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+
+        # Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", payload)
+        # 🔥 ใช้ Router แทนการ Broadcast ตรงๆ
+        CopyTrade.TradeSignalRouter.dispatch(master_id, payload)
+
       {:error, _} -> Logger.error("❌ Failed to close Master Signal")
+    end
+
+    state
+  end
+
+  defp handle_command("CMD_SET_MODE|" <> mode, state) do
+    mode = String.trim(mode) # "1TO1" หรือ "PUBSUB"
+
+    case CopyTrade.Accounts.update_user_copy_mode(state.user_id, mode) do
+      {:ok, _user} ->
+        Logger.info("🔄 Master #{state.user_id} switched mode to #{mode}")
+        :gen_tcp.send(state.socket, "MODE_UPDATED|#{mode}\n")
+      {:error, _} ->
+        Logger.error("❌ Failed to update mode for user #{state.user_id}")
+        :gen_tcp.send(state.socket, "ERROR:MODE_CHANGE_FAILED\n")
     end
 
     state
@@ -309,6 +370,10 @@ defmodule CopyTrade.SocketHandler do
       slave_volume,
       slave_type
     )
+
+    # แจ้งหน้าจอให้ Refresh ข้อมูลล่าสุด
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
+
     state
   end
 
@@ -322,6 +387,10 @@ defmodule CopyTrade.SocketHandler do
 
     Logger.info("💰 Closed! Profit: #{profit}")
     CopyTrade.TradePairContext.mark_as_closed(state.user_id, master_ticket, price, profit)
+
+    # แจ้งหน้าจอให้ Refresh ข้อมูลล่าสุด
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
+
     state
   end
 
@@ -345,4 +414,16 @@ defmodule CopyTrade.SocketHandler do
     info = %{id: user.id, name: user.name, email: user.email}
     Phoenix.PubSub.broadcast(CopyTrade.PubSub, "admin_dashboard", {:follower_status, info, status})
   end
+
+  defp build_ea_message(%{action: action} = p) when action in ["OPEN_BUY", "OPEN_SELL"] do
+    # ส่ง Format: CMD_OPEN|TYPE|SYMBOL|PRICE|VOLUME|SL|TP|MASTER_TICKET [cite: 77, 81]
+    type = if action == "OPEN_BUY", do: "BUY", else: "SELL"
+    "CMD_OPEN|#{type}|#{p.symbol}|#{p.price}|#{p.volume}|#{p.sl}|#{p.tp}|#{p.master_ticket}"
+  end
+
+  defp build_ea_message(%{action: "CLOSE"} = p) do
+    "CMD_CLOSE|#{p.symbol}|#{p.slave_ticket}|#{p.master_ticket}"
+  end
+
+  defp build_ea_message(_), do: ""
 end

@@ -373,4 +373,29 @@ defmodule CopyTrade.Accounts do
   def list_all_user_symbols do
     Repo.all(UserSymbol)
   end
+
+  def update_user_copy_mode(user_id, mode) when mode in ["1TO1", "PUBSUB"] do
+    user = get_user!(user_id)
+
+    user
+    |> Ecto.Changeset.cast(%{copy_mode: mode}, [:copy_mode])
+    |> Repo.update()
+  end
+
+  # แถม: ฟังก์ชันสำหรับ Bind คู่แท้ (Partner)
+  def bind_partner(master_id, follower_id) do
+    master = get_user!(master_id)
+
+    master
+    |> Ecto.Changeset.cast(%{partner_id: follower_id}, [:partner_id])
+    |> Repo.update()
+  end
+
+  def unbind_partner(master_id) do
+    master = get_user!(master_id)
+
+    master
+    |> Ecto.Changeset.cast(%{partner_id: nil}, [:partner_id])
+    |> Repo.update()
+  end
 end

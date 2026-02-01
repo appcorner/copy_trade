@@ -15,11 +15,18 @@ defmodule CopyTrade.Accounts.User do
     field :master_token, :string
 
     field :name, :string
+    field :copy_mode, :string, default: "PUBSUB"
 
     # ความสัมพันธ์: 1 คน ตามได้ 1 Master (ในเวอร์ชั่นนี้)
     belongs_to :following, CopyTrade.Accounts.User, foreign_key: :following_id
 
     has_many :user_symbols, CopyTrade.Accounts.UserSymbol
+
+    # ความสัมพันธ์คู่แท้
+    belongs_to :partner, CopyTrade.Accounts.User, foreign_key: :partner_id
+
+    # สำหรับฝั่งที่ถูกจอง (Inverse relationship)
+    has_one :followed_by, CopyTrade.Accounts.User, foreign_key: :partner_id
 
     timestamps(type: :utc_datetime)
   end

@@ -129,7 +129,7 @@ defmodule CopyTradeWeb.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-6xl mx-auto mt-8 px-4"> <%= if @role == :master do %>
+    <div class="max-w-6xl mx-auto py-8 px-4"> <%= if @role == :master do %>
         <div class="mb-8 flex items-center justify-between">
           <div>
              <h1 class="text-3xl font-bold text-gray-900">🏆 แดชบอร์ดผู้นำเทรด (Master)</h1>
@@ -160,6 +160,16 @@ defmodule CopyTradeWeb.DashboardLive do
                 <%= @api_key %>
              </div>
           </div>
+        </div>
+
+        <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm mt-8">
+          <h3 class="text-lg font-bold text-gray-800">Master Sender EA</h3>
+          <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Master ที่ต้องการส่งสัญญาณ</p>
+          <a href="/downloads/MasterSenderTCP_V6_2.ex5"
+            class="inline-block mt-4 px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition"
+            download>
+            📥 Download v6.2 (MQ5)
+          </a>
         </div>
 
       <% else %>
@@ -345,29 +355,17 @@ defmodule CopyTradeWeb.DashboardLive do
           </div>
         </div>
 
+        <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+          <h3 class="text-lg font-bold text-gray-800">Slave Copy EA</h3>
+          <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Follower ที่ต้องการคัดลอกไม้</p>
+          <a href="/downloads/SlaveTCP_V6_2.ex5"
+            class="inline-block mt-4 px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
+            download>
+            📥 Download v6.2 (MQ5)
+          </a>
+        </div>
+
       <% end %>
-    </div>
-
-    <div class="max-w-6xl mx-auto py-8 px-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
-        <h3 class="text-lg font-bold text-gray-800">Master Sender EA</h3>
-        <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Master ที่ต้องการส่งสัญญาณ</p>
-        <a href="/downloads/MasterSenderTCP_V6_2.ex5"
-          class="inline-block mt-4 px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition"
-          download>
-          📥 Download v6.2 (MQ5)
-        </a>
-      </div>
-
-      <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
-        <h3 class="text-lg font-bold text-gray-800">Slave Copy EA</h3>
-        <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Follower ที่ต้องการคัดลอกไม้</p>
-        <a href="/downloads/SlaveTCP_V6_2.ex5"
-          class="inline-block mt-4 px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
-          download>
-          📥 Download v6.2 (MQ5)
-        </a>
-      </div>
     </div>
 
     <footer class="bg-white py-6 border-t border-gray-200">

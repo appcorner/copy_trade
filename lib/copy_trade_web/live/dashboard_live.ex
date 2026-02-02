@@ -129,7 +129,7 @@ defmodule CopyTradeWeb.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-6xl mx-auto py-8 px-4"> <%= if @role == :master do %>
+    <div class="max-w-6xl mx-auto mt-8 px-4"> <%= if @role == :master do %>
         <div class="mb-8 flex items-center justify-between">
           <div>
              <h1 class="text-3xl font-bold text-gray-900">🏆 แดชบอร์ดผู้นำเทรด (Master)</h1>
@@ -307,7 +307,7 @@ defmodule CopyTradeWeb.DashboardLive do
           </div>
         </div>
 
-        <div class="mb-12">
+        <div class="mb-8">
           <h3 class="text-lg font-bold text-gray-900 mb-4">📜 ประวัติการเทรดล่าสุด</h3>
           <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-300">
@@ -315,6 +315,7 @@ defmodule CopyTradeWeb.DashboardLive do
                 <tr>
                   <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Symbol</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
+                  <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Open Price</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Close Price</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Lot</th>
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Profit</th>
@@ -330,6 +331,7 @@ defmodule CopyTradeWeb.DashboardLive do
                          <%= pair.master_trade.type %>
                        </span>
                     </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= pair.open_price %></td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= pair.close_price %></td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500"><%= pair.slave_volume %></td>
                     <td class={"whitespace-nowrap px-3 py-4 text-sm font-bold #{if pair.profit >= 0, do: "text-green-600", else: "text-red-600"}"}>
@@ -345,6 +347,39 @@ defmodule CopyTradeWeb.DashboardLive do
 
       <% end %>
     </div>
+
+    <div class="max-w-6xl mx-auto py-8 px-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+        <h3 class="text-lg font-bold text-gray-800">Master Sender EA</h3>
+        <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Master ที่ต้องการส่งสัญญาณ</p>
+        <a href="/downloads/MasterSenderTCP_V6_2.ex5"
+          class="inline-block mt-4 px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition"
+          download>
+          📥 Download v6.2 (MQ5)
+        </a>
+      </div>
+
+      <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+        <h3 class="text-lg font-bold text-gray-800">Slave Copy EA</h3>
+        <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Follower ที่ต้องการคัดลอกไม้</p>
+        <a href="/downloads/SlaveTCP_V6_2.ex5"
+          class="inline-block mt-4 px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
+          download>
+          📥 Download v6.2 (MQ5)
+        </a>
+      </div>
+    </div>
+
+    <footer class="bg-white py-6 border-t border-gray-200">
+      <div class="mx-auto max-w-7xl px-6 text-center lg:px-8">
+        <p class="text-sm leading-5 text-gray-500">
+          <span>&copy; <%= Date.utc_today().year %> CopyTradePro. All rights reserved.</span>
+          <span class="px-3 py-1 text-xs font-semibold bg-orange-100 text-orange600 rounded-full">
+            v6.2.0 (Latest)
+          </span>
+        </p>
+      </div>
+    </footer>
     """
   end
 

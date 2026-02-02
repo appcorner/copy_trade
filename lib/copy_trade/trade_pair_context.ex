@@ -94,7 +94,7 @@ defmodule CopyTrade.TradePairContext do
   end
 
   # 7. ดึงประวัติการเทรดที่จบแล้ว (CLOSED)
-  def list_closed_pairs(user_id, limit \\ 50) do
+  def list_closed_pairs(user_id, limit \\ 25) do
     from(t in TradePair,
       join: m in assoc(t, :master_trade),
       where: t.user_id == ^user_id and t.status == "CLOSED" and t.close_price > 0.0,

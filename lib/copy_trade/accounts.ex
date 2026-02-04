@@ -378,12 +378,21 @@ defmodule CopyTrade.Accounts do
     user = get_user!(user_id)
 
     user
-    |> Ecto.Changeset.cast(%{copy_mode: mode}, [:copy_mode])
+    |> Ecto.Changeset.cast(%{copy_mode: mode, partner_id: nil}, [:copy_mode, :partner_id])
     |> Repo.update()
   end
 
   # แถม: ฟังก์ชันสำหรับ Bind คู่แท้ (Partner)
   def bind_partner(master_id, follower_id) do
+    # find partner_id exist in other master and remove it
+    query = from u in User,
+              where: u.partner_id == ^follower_id and u.id != ^master_id,
+              select: u.id
+    Repo.all(query)
+    |> Enum.each(fn other_master_id ->
+      unbind_partner(other_master_id)
+    end)
+
     master = get_user!(master_id)
 
     master

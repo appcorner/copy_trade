@@ -290,4 +290,32 @@ defmodule CopyTrade.TradePairContext do
       zombie_in_ea # คืนค่ารายการไม้ผีกลับไปเพื่อให้ TCP Handler สั่งปิด
     end)
   end
+
+  @doc """
+  ส่งการแจ้งเตือน Stop Out ไปยัง Dashboard และระบบที่เกี่ยวข้อง
+  """
+  def notify_stop_out(user_id, symbol_or_type) do
+    # ดึงข้อมูล User เพื่อเอาชื่อหรือ Token มาโชว์ใน Notification
+    user = CopyTrade.Accounts.get_user!(user_id)
+
+    payload = %{
+      event: "stop_out_detected",
+      user_id: user.id,
+      user_name: user.name || "User ##{user.id}",
+      target: symbol_or_type, # เช่น "ACCOUNT" หรือ "XAUUSD"
+      message: "🚨 ระบบตรวจพบ Stop Out จาก #{user.name || "พอร์ตคู่แท้"}!",
+      timestamp: DateTime.utc_now()
+    }
+
+    # ส่งสัญญาณไปยัง Topic "dashboard_notifications"
+    # หน้าจอ LiveView จะต้อง Subscribe topic นี้ไว้
+    Phoenix.PubSub.broadcast(
+      CopyTrade.Sub,
+      "dashboard_notifications",
+      payload
+    )
+
+    # (Optional) บันทึก Log ลง Database ไว้ดูย้อนหลัง
+    # insert_notification_log(payload)
+  end
 end

@@ -82,3 +82,7 @@ if (process.env.NODE_ENV === "development") {
   })
 }
 
+window.addEventListener("phx:play_alert_sound", (e) => {
+  const audio = new Audio("/sounds/emergency_alert.mp3");
+  audio.play();
+});

@@ -68,6 +68,12 @@ defmodule CopyTrade.SocketHandler do
     {:noreply, state}
   end
 
+  # 3. รับคำสั่งปิดทั้งหมด (EMERGENCY CLOSE)
+  def handle_info({:direct_signal, %{action: "CLOSE_ALL", reason: reason}}, state) do
+    :gen_tcp.send(state.socket, "CMD_CLOSE_ALL|#{reason}\n")
+    {:noreply, state}
+  end
+
   # 2. รับสัญญาณแบบกระซิบ (โหมด 1TO1 จากคู่แท้)
   def handle_info({:direct_signal, payload}, state) do
     # ทำเหมือนกัน แต่ช่องทางนี้จะเร็วกว่าเพราะส่งตรงถึง PID
@@ -130,13 +136,14 @@ defmodule CopyTrade.SocketHandler do
       nil ->
         :gen_tcp.send(state.socket, "ERROR:MASTER_NOT_FOUND\n")
       master ->
+        # set follower mode same as master
+        CopyTrade.Accounts.update_user_copy_mode(state.user_id, master.copy_mode)
         # ถ้า Master อยู่ในโหมด 1TO1 ให้ทำการ "จับคู่แท้" ทันที
         if master.copy_mode == "1TO1" do
           partner_id = if is_binary(state.user_id), do: String.to_integer(state.user_id), else: state.user_id
           if master.partner_id == nil || master.partner_id == partner_id do
-            # ยอมให้ผูกได้ถ้ายังไม่มีคู่ หรือเป็นคนเดิม
-            CopyTrade.Accounts.bind_partner(master.id, state.user_id)
-            Logger.info("💑 Exclusive Pair Bound: Master #{master.id} <-> Slave #{state.user_id}")
+            CopyTrade.Accounts.bind_partner(master.id, partner_id)
+            Logger.info("💑 Exclusive Pair Bound: Master #{master.id} <-> Slave #{partner_id}")
             :gen_tcp.send(state.socket, "SUBSCRIBE_OK\n")
           else
             # ถ้ามีคนอื่นจองอยู่แล้ว ส่ง Error บอก Slave คนใหม่
@@ -203,6 +210,18 @@ defmodule CopyTrade.SocketHandler do
 
     # แจ้งหน้าจอให้ Refresh ข้อมูลล่าสุด
     Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
+
+    state
+  end
+
+  defp handle_command("ALERT_STOP_OUT|" <> reason, state) do
+    Logger.error("🚨 STOP OUT ALERT: User #{state.user_id} - #{reason}")
+
+    # 1. เรียกใช้ Kill Switch ส่งหาคู่แท้ทันที
+    CopyTrade.TradeSignalRouter.emergency_close_all(state.user_id)
+
+    # 2. แจ้งเตือน Dashboard (Toast Notification)
+    CopyTrade.TradePairContext.notify_stop_out(state.user_id, "ACCOUNT")
 
     state
   end

@@ -10,8 +10,9 @@ defmodule CopyTradeWeb.DashboardLive do
 
     # เพิ่มการ Subscribe ช่องราคา
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(CopyTrade.PubSub, "market_prices") #
-      # [cite_start]Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals") # [cite: 1]
+      Phoenix.PubSub.subscribe(CopyTrade.PubSub, "market_prices")
+      Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals")
+      Phoenix.PubSub.subscribe(CopyTrade.PubSub, "dashboard_notifications")
     end
 
     socket =
@@ -75,6 +76,15 @@ defmodule CopyTradeWeb.DashboardLive do
 
     # 3. Assign ค่ากลับลงใน Socket เพื่อให้ LiveView ทำการ Re-render ส่วนที่เกี่ยวข้อง
     {:noreply, assign(socket, :prices, updated_prices)}
+  end
+
+  def handle_info(%{event: "stop_out_detected"} = payload, socket) do
+    # ใช้ put_flash ของ Phoenix เพื่อแสดง Toast มาตรฐาน
+    # หรือส่ง push_event ไปหา JavaScript เพื่อทำ Toast สวยๆ เอง
+    {:noreply,
+    socket
+    |> put_flash(:error, payload.message)
+    |> push_event("play_alert_sound", %{type: "emergency"})}
   end
 
   @impl true

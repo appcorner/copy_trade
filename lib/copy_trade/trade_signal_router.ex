@@ -4,6 +4,7 @@ defmodule CopyTrade.TradeSignalRouter do
   alias CopyTrade.Accounts
   # alias Phoenix.PubSub
 
+  @spec dispatch(any(), any()) :: any()
   @doc """
   ฟังก์ชันหลักในการกระจายสัญญาณ
   จะตรวจสอบโหมดของ Master และส่งสัญญาณผ่านช่องทางที่เหมาะสม
@@ -97,6 +98,46 @@ defmodule CopyTrade.TradeSignalRouter do
 
         # 3. ส่งสัญญาณตรง (กระซิบ)
         send_to_pid(partner_id, enriched_data)
+    end
+  end
+
+  def emergency_close_all(sender_id) do
+    # 1. ดึงข้อมูลผู้ส่ง (ไม่ว่าจะเป็น Master หรือ Slave)
+    sender = Accounts.get_user!(sender_id)
+
+    # 2. ตรวจสอบเงื่อนไข: ต้องเป็นโหมด 1TO1 เท่านั้นถึงจะทำ Kill Switch แบบคู่แท้
+    if sender.copy_mode == "1TO1" do
+      # 3. ค้นหา ID ของคู่แท้ (Partner)
+      partner_id = find_partner_id(sender)
+
+      if partner_id do
+        # 4. ส่งสัญญาณตรง (Direct) ไปที่ PID ของคู่แท้
+        case Registry.lookup(CopyTrade.Registry, "user:#{partner_id}") do
+          [{pid, _}] ->
+            send_to_pid(pid, %{action: "CLOSE_ALL", reason: "PARTNER_STOP_OUT"})
+            Logger.warning("🚨 [1TO1] Emergency Close All sent to Partner ID: #{partner_id}")
+          [] ->
+            Logger.error("❌ [1TO1] Partner #{partner_id} is offline. Emergency command failed.")
+        end
+      else
+        Logger.info("ℹ️ [1TO1] User #{sender_id} has no partner assigned yet.")
+      end
+    else
+      # ถ้าเป็นโหมด PUBSUB อาจจะแค่ส่ง Notification หรือทำลอจิกอื่น
+      Logger.info("ℹ️ [PUBSUB] Stop Out detected, but 1TO1 Kill Switch is disabled.")
+    end
+  end
+
+  # Helper สำหรับหา Partner ID แบบไป-กลับ
+  defp find_partner_id(user) do
+    cond do
+      # ถ้าผู้ส่งเป็น Master และมี partner_id ผูกไว้
+      user.partner_id -> user.partner_id
+
+      # ถ้าผู้ส่งเป็น Slave (ต้องหาว่าใครเป็น Master ที่ผูก partner_id มาหาเรา)
+      true ->
+        import Ecto.Query
+        CopyTrade.Repo.one(from u in Accounts.User, where: u.partner_id == ^user.id, select: u.id)
     end
   end
 end

@@ -2,7 +2,7 @@
 defmodule CopyTrade.TradeSignalRouter do
   require Logger
   alias CopyTrade.Accounts
-  alias Phoenix.PubSub
+  # alias Phoenix.PubSub
 
   @doc """
   ฟังก์ชันหลักในการกระจายสัญญาณ
@@ -19,11 +19,7 @@ defmodule CopyTrade.TradeSignalRouter do
 
       "PUBSUB" ->
         # โหมดมหาชน: กระจายผ่าน Phoenix PubSub (Scalable)
-        PubSub.broadcast(
-          CopyTrade.PubSub,
-          "trades:#{master_id}",
-          {:signal, signal_data}
-        )
+        Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", signal_data)
 
       _ ->
         IO.puts "Unknown copy mode for Master #{master_id}"

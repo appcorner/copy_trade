@@ -114,7 +114,7 @@ defmodule CopyTrade.TradeSignalRouter do
         # 4. ส่งสัญญาณตรง (Direct) ไปที่ PID ของคู่แท้
         case Registry.lookup(CopyTrade.Registry, "user:#{partner_id}") do
           [{pid, _}] ->
-            send_to_pid(pid, %{action: "CLOSE_ALL", reason: "PARTNER_STOP_OUT"})
+            send(pid, {:direct_signal, %{action: "CLOSE_ALL", reason: "partner stop out"}})
             Logger.warning("🚨 [1TO1] Emergency Close All sent to Partner ID: #{partner_id}")
           [] ->
             Logger.error("❌ [1TO1] Partner #{partner_id} is offline. Emergency command failed.")
@@ -125,6 +125,53 @@ defmodule CopyTrade.TradeSignalRouter do
     else
       # ถ้าเป็นโหมด PUBSUB อาจจะแค่ส่ง Notification หรือทำลอจิกอื่น
       Logger.info("ℹ️ [PUBSUB] Stop Out detected, but 1TO1 Kill Switch is disabled.")
+    end
+  end
+
+  @doc """
+  ส่งคำสั่งปิด master ออเดอร์ เมื่อ slave เกิดความล้มเหลวในการเปิดออเดอร์
+  """
+  def handle_slave_open_failure(sender_id, master_ticket, reason) do
+    sender = Accounts.get_user!(sender_id)
+    if sender.copy_mode == "1TO1" do
+      partner_id = find_partner_id(sender)
+      if partner_id do
+        # 1. ค้นหา master_trade_id จาก master_ticket ที่ยัง OPEN อยู่ แล้วแจ้งปิดที่ DB + EA
+        # CopyTrade.TradePairContext.mark_master_trade_as_closed(partner_id, master_ticket)
+        IO.puts "🔔 [1TO1] Notifying Master #{partner_id} to close Master Ticket #{master_ticket} due to Slave open failure."
+        # 2. ส่งสัญญาณปิดออเดอร์กลับไปยัง EA ของ Master
+        case Registry.lookup(CopyTrade.Registry, "user:#{partner_id}") do
+          [{pid, _}] ->
+            IO.puts "🔔 Sending CMD_SYNC_CLOSE to Master #{partner_id} for Master Ticket #{master_ticket}"
+            send(pid, {:direct_signal, %{action: "CMD_SYNC_CLOSE", master_ticket: master_ticket, reason: reason}})
+          [] ->
+            :ok
+        end
+      end
+    end
+  end
+
+  def close_master_after_so(sender_id, slave_ticket) do
+    sender = Accounts.get_user!(sender_id)
+    if sender.copy_mode == "1TO1" do
+      partner_id = find_partner_id(sender)
+      if partner_id do
+        # 1. ค้นหา master_ticket จาก slave_ticket ที่เพิ่งถูกปิดจาก SO
+        case CopyTrade.TradePairContext.get_master_ticket_by_slave(partner_id, slave_ticket) do
+          nil ->
+            Logger.error("❌ [1TO1] No master_ticket found for slave_ticket #{slave_ticket}")
+          master_ticket ->
+            Logger.info("🔔 [1TO1] Notifying Master #{partner_id} to close Master Ticket #{master_ticket} due to Slave STOP OUT.")
+            # 2. ส่งสัญญาณปิดออเดอร์กลับไปยัง EA ของ Master
+            case Registry.lookup(CopyTrade.Registry, "user:#{partner_id}") do
+              [{pid, _}] ->
+                Logger.info("🔔 Sending CMD_SYNC_CLOSE to Master #{partner_id} for Master Ticket #{master_ticket}")
+                send(pid, {:direct_signal, %{action: "CMD_SYNC_CLOSE", master_ticket: master_ticket, reason: "slave stop out"}})
+              [] ->
+                :ok
+            end
+        end
+      end
     end
   end
 

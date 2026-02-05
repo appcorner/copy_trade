@@ -74,6 +74,12 @@ defmodule CopyTrade.SocketHandler do
     {:noreply, state}
   end
 
+  # 4. รับคำสั่งปิด Master เมื่อ Slave เปิดไม่สำเร็จ
+  def handle_info({:direct_signal, %{action: "CMD_SYNC_CLOSE", master_ticket: master_ticket, reason: reason}}, state) do
+    :gen_tcp.send(state.socket, "CMD_SYNC_CLOSE|#{master_ticket}|#{reason}\n")
+    {:noreply, state}
+  end
+
   # 2. รับสัญญาณแบบกระซิบ (โหมด 1TO1 จากคู่แท้)
   def handle_info({:direct_signal, payload}, state) do
     # ทำเหมือนกัน แต่ช่องทางนี้จะเร็วกว่าเพราะส่งตรงถึง PID
@@ -200,8 +206,8 @@ defmodule CopyTrade.SocketHandler do
 
     # สั่ง EA ปิดไม้ที่ไม่ได้มาจากการ Copy ทันที
     Enum.each(zombies, fn ticket ->
-      # ส่งคำสั่งกลับไปหา EA: "CMD_CLOSE_EXTERNAL|ticket"
-      msg = "CMD_CLOSE_EXTERNAL|#{ticket}\n"
+      # ส่งคำสั่งกลับไปหา EA: "CMD_SYNC_CLOSE|ticket|reason"
+      msg = "CMD_SYNC_CLOSE|#{ticket}|not in master\n"
       IO.inspect(ticket, label: ">>> closing slave ticket")
       :gen_tcp.send(state.socket, msg)
     end)
@@ -406,6 +412,38 @@ defmodule CopyTrade.SocketHandler do
 
     Logger.info("💰 Closed! Profit: #{profit}")
     CopyTrade.TradePairContext.mark_as_closed(state.user_id, master_ticket, price, profit)
+
+    # แจ้งหน้าจอให้ Refresh ข้อมูลล่าสุด
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
+
+    state
+  end
+  # 5.1 SLAVE ACK CLOSE SO - EA ตอบกลับว่าปิดแล้วจาก STOP OUT
+  defp handle_command("ACK_CLOSE_SO|" <> data, state) do
+    [slave_ticket_str, price_str, profit_str] = String.split(data, "|")
+
+    slave_ticket = String.to_integer(slave_ticket_str)
+    price = String.to_float(price_str)
+    profit = String.to_float(profit_str)
+
+    Logger.info("💰 Closed! Profit: #{profit}")
+    CopyTrade.TradePairContext.mark_as_so_closed(state.user_id, slave_ticket, price, profit)
+
+    CopyTrade.TradeSignalRouter.close_master_after_so(state.user_id, slave_ticket)
+
+    # แจ้งหน้าจอให้ Refresh ข้อมูลล่าสุด
+    Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})
+
+    state
+  end
+
+  # 6. SLAVE ACK (ACK_OPEN_FAIL|...) - EA ตอบกลับว่าเปิดแล้วล้มเหลว ถ้าmode 1TO1 ให้ปิด Master ด้วย
+  defp handle_command("ACK_OPEN_FAIL|" <> data, state) do
+    [master_ticket, reason] = String.split(data, "|")
+    master_ticket = String.to_integer(master_ticket)
+
+    Logger.error("❌ Slave failed to open order for Master Ticket #{master_ticket}. Reason: #{reason}")
+    CopyTrade.TradeSignalRouter.handle_slave_open_failure(state.user_id, master_ticket, reason)
 
     # แจ้งหน้าจอให้ Refresh ข้อมูลล่าสุด
     Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", %{event: "refresh"})

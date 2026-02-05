@@ -57,11 +57,40 @@ defmodule CopyTrade.TradePairContext do
     Repo.one(query)
   end
 
+  # 4.1 ดึง Master Ticket โดยใช้ Slave Ticket
+  def get_master_ticket_by_slave(user_id, slave_ticket) do
+    query = from t in TradePair,
+      join: m in assoc(t, :master_trade),
+      where: t.user_id == ^user_id and t.slave_ticket == ^slave_ticket,
+      select: m.ticket
+
+    Repo.one(query)
+  end
+
   # 5. บันทึกการปิดออเดอร์ (เมื่อ EA ตอบกลับ ACK_CLOSE)
   def mark_as_closed(user_id, master_ticket, close_price, profit) do
     query = from t in TradePair,
       join: m in assoc(t, :master_trade),
       where: t.user_id == ^user_id and m.ticket == ^master_ticket
+
+    case Repo.one(query) do
+      nil -> {:error, :not_found}
+      pair ->
+        pair
+        |> Ecto.Changeset.change(%{
+          status: "CLOSED",
+          close_price: close_price,
+          profit: profit,
+          closed_at: DateTime.truncate(DateTime.utc_now(), :second)
+        })
+        |> Repo.update()
+    end
+  end
+
+  # 5.1 บันทึกการปิดออเดอร์กรณี Stop Out
+  def mark_as_so_closed(user_id, slave_ticket, close_price, profit) do
+    query = from t in TradePair,
+      where: t.user_id == ^user_id and t.slave_ticket == ^slave_ticket
 
     case Repo.one(query) do
       nil -> {:error, :not_found}
@@ -317,5 +346,23 @@ defmodule CopyTrade.TradePairContext do
 
     # (Optional) บันทึก Log ลง Database ไว้ดูย้อนหลัง
     # insert_notification_log(payload)
+  end
+
+  @doc """
+  ส่งคำสั่งปิด master ออเดอร์
+  """
+  def mark_master_trade_as_closed(partner_id, master_ticket) do
+    query_master = Repo.get_by(MasterTrade, ticket: master_ticket, master_id: partner_id, status: "OPEN")
+    case query_master do
+      nil ->
+        :ok
+      master_trade ->
+        # 2. อัปเดตสถานะ Master เป็น CLOSED พร้อมบันทึกเหตุผล
+        master_trade
+        |> Ecto.Changeset.change(%{
+          status: "CLOSED"
+        })
+        |> Repo.update()
+    end
   end
 end

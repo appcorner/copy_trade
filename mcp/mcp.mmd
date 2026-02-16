@@ -1,0 +1,5 @@
+graph LR
+    User[User / AI Agent] -- MCP Protocol --> MCPServer[Python MCP Server]
+    MCPServer -- HTTP API (JSON) --> Phoenix[Elixir Phoenix App]
+    Phoenix -- TCP Socket --> EA["MT5 EA (SlaveTCP)"]
+    Phoenix -- Ecto --> DB[(PostgreSQL)]

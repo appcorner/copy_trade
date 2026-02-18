@@ -39,38 +39,6 @@ defmodule CopyTradeWeb.UserLive.Registration do
             required
           />
 
-          <div class="mt-6 pt-4 border-t border-gray-100">
-            <label class="block text-sm font-semibold leading-6 text-zinc-800 mb-3">
-              เลือกสถานะของคุณ...
-            </label>
-
-            <div class="grid grid-cols-2 gap-4">
-              <label class="cursor-pointer group relative">
-                <input type="radio" name="user[role]" value="follower" class="peer sr-only" checked={@form[:role].value == "follower" || is_nil(@form[:role].value)} />
-                <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
-                  <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">👥</div>
-                  <span class="font-bold text-gray-900 block">ผู้ตาม (Follower)</span>
-                  <span class="text-xs text-gray-500 mt-1">คัดลอกเทรดจากคนอื่น</span>
-                </div>
-              </label>
-
-              <label class="cursor-pointer group relative">
-                <input type="radio" name="user[role]" value="master" class="peer sr-only" checked={@form[:role].value == "master"} />
-                <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
-                  <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">🏆</div>
-                  <span class="font-bold text-gray-900 block">ผู้นำเทรด (Master)</span>
-                  <span class="text-xs text-gray-500 mt-1">แชร์สัญญาณเทรด</span>
-                </div>
-              </label>
-            </div>
-
-            <%= if @form[:role].errors != [] do %>
-              <div class="mt-2 text-sm text-red-600">
-                กรุณาเลือกสถานะให้ถูกต้อง
-              </div>
-            <% end %>
-          </div>
-
           <div class="mt-6">
             <.button phx-disable-with="Creating account..." class="btn btn-primary w-full">
               สร้างบัญชีผู้ใช้

@@ -6,7 +6,7 @@ defmodule CopyTrade.Accounts do
   import Ecto.Query, warn: false
   alias CopyTrade.Repo
 
-  alias CopyTrade.Accounts.{User, UserToken, UserNotifier, UserSymbol}
+  alias CopyTrade.Accounts.{User, UserToken, UserNotifier, UserSymbol, TradingAccount}
   alias CopyTrade.MasterTrade
 
   ## Database getters
@@ -62,8 +62,8 @@ defmodule CopyTrade.Accounts do
   def get_user!(id), do: Repo.get!(User, id)
 
   # ใน Accounts Context
-  def get_user_by_api_key(api_key) do
-    Repo.get_by(User, api_key: api_key)
+  def get_account_by_api_key(api_key) do
+    Repo.get_by(TradingAccount, api_key: api_key) |> Repo.preload(:user)
   end
 
   ## User registration
@@ -307,16 +307,41 @@ defmodule CopyTrade.Accounts do
     end)
   end
 
+  # --- Trading Account Management ---
+
+  def get_trading_account!(id), do: Repo.get!(TradingAccount, id)
+
+  def list_trading_accounts(user_id) do
+    Repo.all(from t in TradingAccount, where: t.user_id == ^user_id)
+  end
+
+  def create_trading_account(user, attrs) do
+    %TradingAccount{}
+    |> TradingAccount.changeset(Map.put(attrs, "user_id", user.id))
+    |> Repo.insert()
+  end
+
+  def delete_trading_account(%TradingAccount{} = account) do
+    Repo.delete(account)
+  end
+
+  def update_copy_mode(%TradingAccount{} = account, mode) do
+    account
+    |> Ecto.Changeset.change(%{copy_mode: mode})
+    |> Ecto.Changeset.validate_inclusion(:copy_mode, ["1TO1", "PUBSUB", "RECORD"])
+    |> Repo.update()
+  end
+
   # ดึงรายชื่อ Master พร้อมจำนวนผู้ติดตาม
   def list_masters_with_counts do
-    from(u in User,
-      where: u.role == "master",
-      left_join: f in User, on: f.following_id == u.id,
-      group_by: u.id,
+    from(t in TradingAccount,
+      where: t.role == "master" and t.is_active == true,
+      left_join: f in TradingAccount, on: f.following_id == t.id,
+      group_by: t.id,
       select: %{
-        master_id: u.id,
-        name: u.name,
-        token: u.master_token,
+        master_id: t.id,
+        name: t.name,
+        token: t.master_token,
         follower_count: count(f.id)
       }
     )
@@ -324,60 +349,33 @@ defmodule CopyTrade.Accounts do
   end
 
   # ฟังก์ชันหา Master จาก Token (ใช้ตอน Subscribe)
-  def get_master_by_token(token) do
-    Repo.get_by(User, master_token: token)
+  def get_master_account_by_token(token) do
+    Repo.get_by(TradingAccount, master_token: token)
   end
 
   # ฟังก์ชันอัปเดตการติดตาม (ใช้ตอน EA ส่ง Subscribe มา)
   def link_follower_to_master(follower_id, master_id) do
-    get_user!(follower_id)
+    get_trading_account!(follower_id)
     |> Ecto.Changeset.change(%{following_id: master_id})
     |> Repo.update()
   end
 
-  def get_following_master(user) do
-    user = Repo.preload(user, :following)
-    user.following
-  end
-
   # [NEW] ฟังก์ชันสำหรับกดยกเลิกการติดตาม
-  def unfollow_master(user) do
-    user
+  def unfollow_master(account_id) do
+    get_trading_account!(account_id)
     |> Ecto.Changeset.change(%{following_id: nil})
     |> Repo.update()
   end
 
-  def get_master_total_profit(master_user_id) do
-    # รวมกำไรจากไม้ที่สถานะเป็น "CLOSED" ของ Master คนนี้
-    query = from t in MasterTrade,
-              where: t.master_id == ^master_user_id and t.status == "CLOSED",
-              select: sum(t.profit)
-
-    Repo.one(query) || 0.0
+  def get_following_master(account_id) do
+    account = get_trading_account!(account_id) |> Repo.preload(:following)
+    account.following
   end
 
-  def upsert_user_symbol(user_id, symbol, contract_size, digits) do
-    attrs = %{user_id: user_id, symbol: symbol, contract_size: contract_size, digits: digits}
+  def update_account_copy_mode(account_id, mode) when mode in ["1TO1", "PUBSUB"] do
+    account = get_trading_account!(account_id)
 
-    case Repo.get_by(UserSymbol, user_id: user_id, symbol: symbol) do
-      nil -> %UserSymbol{}
-      existing -> existing
-    end
-    |> UserSymbol.changeset(attrs)
-    |> Repo.insert_or_update()
-  end
-
-  @doc """
-  ดึงข้อมูล Symbol ทั้งหมดของทุก User เพื่อใช้ในการทำ Warm-up Cache
-  """
-  def list_all_user_symbols do
-    Repo.all(UserSymbol)
-  end
-
-  def update_user_copy_mode(user_id, mode) when mode in ["1TO1", "PUBSUB"] do
-    user = get_user!(user_id)
-
-    user
+    account
     |> Ecto.Changeset.cast(%{copy_mode: mode, partner_id: nil}, [:copy_mode, :partner_id])
     |> Repo.update()
   end
@@ -385,15 +383,16 @@ defmodule CopyTrade.Accounts do
   # แถม: ฟังก์ชันสำหรับ Bind คู่แท้ (Partner)
   def bind_partner(master_id, follower_id) do
     # find partner_id exist in other master and remove it
-    query = from u in User,
-              where: u.partner_id == ^follower_id and u.id != ^master_id,
-              select: u.id
+    query = from t in TradingAccount,
+              where: t.partner_id == ^follower_id and t.id != ^master_id,
+              select: t.id
+    
     Repo.all(query)
     |> Enum.each(fn other_master_id ->
       unbind_partner(other_master_id)
     end)
 
-    master = get_user!(master_id)
+    master = get_trading_account!(master_id)
 
     master
     |> Ecto.Changeset.cast(%{partner_id: follower_id}, [:partner_id])
@@ -401,10 +400,41 @@ defmodule CopyTrade.Accounts do
   end
 
   def unbind_partner(master_id) do
-    master = get_user!(master_id)
+    master = get_trading_account!(master_id)
 
     master
     |> Ecto.Changeset.cast(%{partner_id: nil}, [:partner_id])
     |> Repo.update()
   end
+  
+  # Note: logic for symbols still uses user_id for now as requested plan did not specify migrating symbols.
+  # Ideally we should migrate UserSymbol to AccountSymbol later.
+
+  def upsert_user_symbol(account_id, symbol, contract_size, digits) do
+    attrs = %{account_id: account_id, symbol: symbol, contract_size: contract_size, digits: digits}
+
+    case Repo.get_by(UserSymbol, account_id: account_id, symbol: symbol) do
+      nil -> %UserSymbol{}
+      existing -> existing
+    end
+    |> UserSymbol.changeset(attrs)
+    |> Repo.insert_or_update()
+  end
+
+  def list_all_user_symbols do
+    Repo.all(UserSymbol)
+  end
+
+  def get_master_total_profit(master_account_id) do
+    from(mt in MasterTrade,
+      where: mt.master_id == ^master_account_id and mt.status == "CLOSED",
+      select: sum(mt.profit)
+    )
+    |> Repo.one()
+    |> case do
+      nil -> 0.0
+      profit -> profit
+    end
+  end
 end
+

@@ -17,6 +17,17 @@
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
 
     <script>
+      function closeMobileMenu() {
+        const menu = document.getElementById('mobile-menu');
+        const iconOpen = document.getElementById('icon-open');
+        const iconClose = document.getElementById('icon-close');
+        if (menu && !menu.classList.contains('hidden')) {
+          menu.classList.add('hidden');
+          if (iconOpen) iconOpen.classList.remove('hidden');
+          if (iconClose) iconClose.classList.add('hidden');
+        }
+      }
+
       function toggleMobileMenu() {
         const menu = document.getElementById('mobile-menu');
         const iconOpen = document.getElementById('icon-open');
@@ -32,6 +43,9 @@
           iconClose.classList.add('hidden');
         }
       }
+
+      window.addEventListener("phx:navigate", closeMobileMenu);
+      window.addEventListener("phx:page-loading-start", closeMobileMenu);
     </script>
   </head>
   <body class="bg-slate-50 antialiased">
@@ -54,8 +68,8 @@
                 Home
               </a>
               <%= if @current_scope do %>
-                <.link navigate={~p"/dashboard"} class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                  Dashboard
+                <.link navigate={~p"/accounts"} class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                  My Accounts
                 </.link>
                 <.link navigate={~p"/masters"} class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                   Masters
@@ -70,9 +84,7 @@
                 <li class="text-sm text-right">
                   <div class="font-bold text-gray-900"><%= @current_scope.user.email %></div>
                   <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                    <span class={if @current_scope.user.role == "master", do: "text-indigo-600", else: "text-green-600"}>
-                      <%= @current_scope.user.role %>
-                    </span>
+                    <!-- User Role Removed -->
                   </div>
                 </li>
                 <li class="h-8 w-px bg-gray-200" aria-hidden="true"></li>
@@ -126,7 +138,7 @@
           <a href="/" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Home</a>
           
           <%= if @current_scope do %>
-            <a href="/dashboard" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Dashboard</a>
+            <a href="/accounts" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">My Accounts</a>
             <a href="/masters" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Masters</a>
           <% end %>
         </div>
@@ -143,7 +155,7 @@
                 <div class="text-base font-medium text-gray-800"><%= @current_scope.user.name || "User" %></div>
                 <div class="text-sm font-medium text-gray-500"><%= @current_scope.user.email %></div>
                 <div class="mt-1 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
-                  <%= @current_scope.user.role %>
+                  Member
                 </div>
               </div>
             </div>

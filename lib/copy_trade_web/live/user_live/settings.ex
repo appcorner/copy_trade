@@ -10,43 +10,52 @@ defmodule CopyTradeWeb.UserLive.Settings do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope}>
 
-      <div class="divide-y divide-zinc-100">
-        <div class="grid max-w-7xl grid-cols-1 gap-x-8 gap-y-10 px-4 py-16 sm:px-6 md:grid-cols-3 lg:px-8">
-          <div>
-            <h2 class="text-base font-semibold leading-7 text-zinc-900">API Key & Connection</h2>
-            <p class="mt-1 text-sm leading-6 text-zinc-600">
-              กุญแจสำคัญสำหรับเชื่อมต่อบัญชีเทรดของคุณเข้ากับระบบ
-            </p>
+      <div>
+        <h3 class="text-base font-semibold leading-6 text-zinc-800 mb-1">🔑 API Keys สำหรับเชื่อมต่อ EA</h3>
+        <p class="text-sm text-zinc-500 mb-4">ใช้ API Key นี้ในการตั้งค่า EA บน MT5 เพื่อเชื่อมต่อกับระบบ</p>
+
+        <%= if @accounts == [] do %>
+          <div class="rounded-lg bg-gray-50 border border-gray-200 p-6 text-center">
+            <p class="text-sm text-gray-500">คุณยังไม่มีบัญชีเทรด</p>
+            <.link navigate={~p"/accounts/new"} class="mt-2 inline-block text-sm font-semibold text-indigo-600 hover:text-indigo-500">
+              สร้างบัญชีเทรดแรกของคุณ →
+            </.link>
           </div>
-
-          <div class="md:col-span-2">
-            <div class="rounded-xl bg-zinc-50 p-6 shadow-sm ring-1 ring-inset ring-zinc-200">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-bold text-zinc-900 flex items-center gap-2">
-                  🔑 API Key ของคุณ
-                </h3>
-                <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Active</span>
+        <% else %>
+          <div class="space-y-3">
+            <%= for account <- @accounts do %>
+              <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-lg"><%= if account.role == "master", do: "🏆", else: "👥" %></span>
+                    <span class="font-bold text-gray-900"><%= account.name %></span>
+                    <span class={"px-2 py-0.5 text-xs font-semibold rounded-full #{if account.role == "master", do: "bg-blue-100 text-blue-700", else: "bg-green-100 text-green-700"}"}
+                    >
+                      <%= String.upcase(account.role) %>
+                    </span>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <label class="block text-xs font-medium text-gray-500 mb-1">API Key</label>
+                  <div class="bg-gray-50 rounded-lg p-2.5 font-mono text-sm text-gray-700 break-all border border-gray-200 select-all">
+                    <%= account.api_key %>
+                  </div>
+                </div>
+                <%= if account.role == "master" && account.master_token do %>
+                  <div class="mt-2">
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Master Token</label>
+                    <div class="bg-indigo-50 rounded-lg p-2.5 font-mono text-sm text-indigo-700 break-all border border-indigo-200 select-all">
+                      <%= account.master_token %>
+                    </div>
+                  </div>
+                <% end %>
               </div>
-
-              <div class="relative">
-                <code class="block w-full rounded-lg bg-white px-4 py-3 text-sm font-mono text-indigo-600 shadow-sm ring-1 ring-inset ring-zinc-300 select-all break-all">
-                  <%= @current_scope.user.api_key %>
-                </code>
-                <p class="mt-2 text-xs text-zinc-500 text-right">
-                  (ดับเบิลคลิกเพื่อเลือกทั้งหมด)
-                </p>
-              </div>
-
-              <div class="mt-4 border-t border-zinc-200 pt-4">
-                <p class="text-xs text-zinc-600">
-                  <strong>วิธีใช้งาน:</strong> นำรหัสนี้ไปวางในช่อง <code class="text-xs font-bold bg-zinc-200 px-1 rounded">คีย์ของ <%= if(@current_scope.user.role == "master", do: "Master", else: "Follower") %></code> ของ EA SlaveTCP บน MT5
-                </p>
-              </div>
-            </div>
-
+            <% end %>
           </div>
-        </div>
+        <% end %>
       </div>
+
+      <div class="divider" />
 
       <div class="text-center">
         <.header>
@@ -138,6 +147,7 @@ defmodule CopyTradeWeb.UserLive.Settings do
     password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
 
     name_changeset = CopyTrade.Accounts.User.name_changeset(user, %{})
+    accounts = Accounts.list_trading_accounts(user.id)
 
     socket =
       socket
@@ -146,6 +156,7 @@ defmodule CopyTradeWeb.UserLive.Settings do
       |> assign(:password_form, to_form(password_changeset))
       |> assign(:name_form, to_form(name_changeset))
       |> assign(:trigger_submit, false)
+      |> assign(:accounts, accounts)
 
     {:ok, socket}
   end

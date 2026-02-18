@@ -8,6 +8,7 @@ defmodule CopyTrade.TradePairContext do
   alias CopyTrade.TradePair # (ต้องสร้าง Schema นี้ด้วย เดี๋ยวผมให้ code ต่อไป)
   alias CopyTrade.MasterTrade
   alias CopyTrade.Cache.SymbolCache
+  alias CopyTrade.Accounts.TradingAccount
 
   # 1. สร้างคู่เทรดใหม่ (สถานะ PENDING)
   def create_trade_pair(attrs) do
@@ -17,20 +18,20 @@ defmodule CopyTrade.TradePairContext do
   end
 
   # 2. เช็คว่า Master Ticket นี้เคยเปิดไปหรือยัง (กันซ้ำ)
-  def exists?(user_id, master_ticket) do
+  def exists?(account_id, master_ticket) do
     query = from t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.user_id == ^user_id and m.ticket == ^master_ticket
+      where: t.account_id == ^account_id and m.ticket == ^master_ticket
 
     Repo.exists?(query)
   end
 
   # 3. อัปเดต Slave Ticket (เมื่อ EA ตอบกลับ ACK_OPEN)
-  def update_slave_ticket(user_id, master_ticket, slave_ticket, slave_volume, slave_type) do
+  def update_slave_ticket(account_id, master_ticket, slave_ticket, slave_volume, slave_type) do
     # หา pair ที่ตรงกันและยังเป็น PENDING
     query = from t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.user_id == ^user_id and m.ticket == ^master_ticket and t.status == "PENDING"
+      where: t.account_id == ^account_id and m.ticket == ^master_ticket and t.status == "PENDING"
 
     case Repo.one(query) do
       nil -> {:error, :not_found}
@@ -48,30 +49,30 @@ defmodule CopyTrade.TradePairContext do
   end
 
   # 4. ดึง Slave Ticket เพื่อไปสั่งปิด
-  def get_slave_ticket(user_id, master_ticket) do
+  def get_slave_ticket(account_id, master_ticket) do
     query = from t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.user_id == ^user_id and m.ticket == ^master_ticket,
+      where: t.account_id == ^account_id and m.ticket == ^master_ticket,
       select: t.slave_ticket
 
     Repo.one(query)
   end
 
   # 4.1 ดึง Master Ticket โดยใช้ Slave Ticket
-  def get_master_ticket_by_slave(user_id, slave_ticket) do
+  def get_master_ticket_by_slave(account_id, slave_ticket) do
     query = from t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.user_id == ^user_id and t.slave_ticket == ^slave_ticket,
+      where: t.account_id == ^account_id and t.slave_ticket == ^slave_ticket,
       select: m.ticket
 
     Repo.one(query)
   end
 
   # 5. บันทึกการปิดออเดอร์ (เมื่อ EA ตอบกลับ ACK_CLOSE)
-  def mark_as_closed(user_id, master_ticket, close_price, profit) do
+  def mark_as_closed(account_id, master_ticket, close_price, profit) do
     query = from t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.user_id == ^user_id and m.ticket == ^master_ticket
+      where: t.account_id == ^account_id and m.ticket == ^master_ticket
 
     case Repo.one(query) do
       nil -> {:error, :not_found}
@@ -88,9 +89,9 @@ defmodule CopyTrade.TradePairContext do
   end
 
   # 5.1 บันทึกการปิดออเดอร์กรณี Stop Out
-  def mark_as_so_closed(user_id, slave_ticket, close_price, profit) do
+  def mark_as_so_closed(account_id, slave_ticket, close_price, profit) do
     query = from t in TradePair,
-      where: t.user_id == ^user_id and t.slave_ticket == ^slave_ticket
+      where: t.account_id == ^account_id and t.slave_ticket == ^slave_ticket
 
     case Repo.one(query) do
       nil -> {:error, :not_found}
@@ -107,10 +108,10 @@ defmodule CopyTrade.TradePairContext do
   end
 
   # 6. ดึงออเดอร์ที่กำลังทำงานอยู่ (OPEN หรือ PENDING)
-  def list_active_pairs(user_id) do
+  def list_active_pairs(account_id) do
     from(t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.user_id == ^user_id and t.status in ["OPEN"],
+      where: t.account_id == ^account_id and t.status in ["OPEN"],
 
       # Preload เพื่อให้ใน Code เรียก t.master_trade.symbol ได้
       preload: [master_trade: m],
@@ -123,10 +124,10 @@ defmodule CopyTrade.TradePairContext do
   end
 
   # 7. ดึงประวัติการเทรดที่จบแล้ว (CLOSED)
-  def list_closed_pairs(user_id, limit \\ 25) do
+  def list_closed_pairs(account_id, limit \\ 25) do
     from(t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.user_id == ^user_id and t.status == "CLOSED" and t.close_price > 0.0,
+      where: t.account_id == ^account_id and t.status == "CLOSED" and t.close_price > 0.0,
       order_by: [desc: t.closed_at],
       limit: ^limit,
       preload: [master_trade: m]
@@ -135,12 +136,28 @@ defmodule CopyTrade.TradePairContext do
   end
 
   # 8. คำนวณกำไรรวม
-  def get_total_profit(user_id) do
+  def get_total_profit(account_id) do
     query = from t in TradePair,
-      where: t.user_id == ^user_id and t.status == "CLOSED" and t.close_price > 0.0,
+      where: t.account_id == ^account_id and t.status == "CLOSED" and t.close_price > 0.0,
       select: sum(t.profit)
 
     Repo.one(query) || 0.0
+  end
+
+  # 9. ดึงข้อมูลกำไรสะสมแบบ time-series สำหรับกราฟ
+  def get_cumulative_profit_data(account_id) do
+    from(t in TradePair,
+      where: t.account_id == ^account_id and t.status == "CLOSED" and t.close_price > 0.0,
+      order_by: [asc: t.closed_at],
+      select: %{profit: t.profit, closed_at: t.closed_at}
+    )
+    |> Repo.all()
+    |> Enum.reduce({[], 0.0}, fn trade, {acc, running_total} ->
+      new_total = running_total + (trade.profit || 0.0)
+      date_str = if trade.closed_at, do: Calendar.strftime(trade.closed_at, "%d/%m %H:%M"), else: "N/A"
+      {acc ++ [%{date: date_str, cumulative_profit: Float.round(new_total, 2), profit: Float.round(trade.profit || 0.0, 2)}], new_total}
+    end)
+    |> elem(0)
   end
 
 
@@ -233,10 +250,10 @@ defmodule CopyTrade.TradePairContext do
   """
   def calculate_floating_profit(trade_pair, prices) when is_map(prices) do
     # IO.inspect(prices, label: ">>> prices")
-    # ดึงข้อมูล Master เพื่อเอา user_id มาเป็น Key
+    # ดึงข้อมูล Master เพื่อเอา account_id มาเป็น Key
     master = trade_pair.master_trade
 
-    slave_symbol_info = SymbolCache.get_info(trade_pair.user_id, master.symbol) || %{contract_size: 100000.0, digits: 5}
+    slave_symbol_info = SymbolCache.get_info(trade_pair.account_id, master.symbol) || %{contract_size: 100000.0, digits: 5}
 
     # ตรวจสอบว่าใน Map 'prices' มีราคาของ Master คนนี้และ Symbol นี้อยู่หรือไม่
     case Map.get(prices, {master.master_id, master.symbol}) do
@@ -299,7 +316,7 @@ defmodule CopyTrade.TradePairContext do
       # --- ส่วนที่ 1: กวาดล้าง DB (ไม้ที่ใน DB มีแต่ใน EA ไม่มี) ---
       # ค้นหาไม้ที่ใน DB บอกว่า OPEN แต่ใน EA ปิดไปแล้ว
       db_open_tickets_query = from p in TradePair,
-                              where: p.user_id == ^follower_id and p.status == "OPEN",
+                              where: p.account_id == ^follower_id and p.status == "OPEN",
                               select: p.slave_ticket
 
       db_tickets = Repo.all(db_open_tickets_query)
@@ -308,7 +325,7 @@ defmodule CopyTrade.TradePairContext do
       to_close_in_db = db_tickets -- actual_slave_tickets
 
       if length(to_close_in_db) > 0 do
-        from(p in TradePair, where: p.user_id == ^follower_id and p.slave_ticket in ^to_close_in_db)
+        from(p in TradePair, where: p.account_id == ^follower_id and p.slave_ticket in ^to_close_in_db)
         |> Repo.update_all(set: [status: "CLOSED"])
       end
 
@@ -323,23 +340,26 @@ defmodule CopyTrade.TradePairContext do
   @doc """
   ส่งการแจ้งเตือน Stop Out ไปยัง Dashboard และระบบที่เกี่ยวข้อง
   """
-  def notify_stop_out(user_id, symbol_or_type) do
-    # ดึงข้อมูล User เพื่อเอาชื่อหรือ Token มาโชว์ใน Notification
-    user = CopyTrade.Accounts.get_user!(user_id)
+  def notify_stop_out(account_id, symbol_or_type) do
+    # ดึงข้อมูล TradingAccount เพื่อเอาชื่อหรือ Token มาโชว์ใน Notification
+    account = CopyTrade.Accounts.get_trading_account!(account_id)
 
     payload = %{
       event: "stop_out_detected",
-      user_id: user.id,
-      user_name: user.name || "User ##{user.id}",
+      user_id: account.id, # Keep payload key as user_id for frontend compatibility? Or change?
+                # Changing to account_id might break frontend if it expects user_id. 
+                # But semantically it is account_id.
+                # Assuming frontend just displays it.
+      user_name: account.name || "Account ##{account.id}",
       target: symbol_or_type, # เช่น "ACCOUNT" หรือ "XAUUSD"
-      message: "🚨 ระบบตรวจพบ Stop Out จาก #{user.name || "พอร์ตคู่แท้"}!",
+      message: "🚨 ระบบตรวจพบ Stop Out จาก #{account.name || "พอร์ต"}!",
       timestamp: DateTime.utc_now()
     }
 
     # ส่งสัญญาณไปยัง Topic "dashboard_notifications"
     # หน้าจอ LiveView จะต้อง Subscribe topic นี้ไว้
     Phoenix.PubSub.broadcast(
-      CopyTrade.Sub,
+      CopyTrade.PubSub,
       "dashboard_notifications",
       payload
     )

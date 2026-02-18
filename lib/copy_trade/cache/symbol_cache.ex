@@ -7,13 +7,13 @@ defmodule CopyTrade.Cache.SymbolCache do
 
   # --- Client API ---
 
-  def set_info(user_id, symbol, contract_size, digits) do
-    # บันทึกลง ETS โดยใช้ {user_id, symbol} เป็น Primary Key
-    :ets.insert(@table, {{user_id, symbol}, %{contract_size: contract_size, digits: digits}})
+  def set_info(account_id, symbol, contract_size, digits) do
+    # บันทึกลง ETS โดยใช้ {account_id, symbol} เป็น Primary Key
+    :ets.insert(@table, {{account_id, symbol}, %{contract_size: contract_size, digits: digits}})
   end
 
-  def get_info(user_id, symbol) do
-    case :ets.lookup(@table, {user_id, symbol}) do
+  def get_info(account_id, symbol) do
+    case :ets.lookup(@table, {account_id, symbol}) do
       [{_, info}] -> info
       [] -> nil
     end
@@ -35,7 +35,7 @@ defmodule CopyTrade.Cache.SymbolCache do
       
       CopyTrade.Accounts.list_all_user_symbols() # สร้างฟังก์ชันนี้เพื่อดึงข้อมูลทั้งหมด
       |> Enum.each(fn s ->
-        set_info(s.user_id, s.symbol, s.contract_size, s.digits)
+        set_info(s.account_id, s.symbol, s.contract_size, s.digits)
       end)
 
       IO.puts "[Cache] Warm-up complete!"

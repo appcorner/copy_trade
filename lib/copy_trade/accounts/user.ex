@@ -9,24 +9,20 @@ defmodule CopyTrade.Accounts.User do
     field :confirmed_at, :utc_datetime
     field :authenticated_at, :utc_datetime, virtual: true
 
-    # 🔥 เพิ่ม Field ตรงนี้ให้ตรงกับ Migration
-    field :role, :string, default: "follower"
-    field :api_key, :string
-    field :master_token, :string
-
+    # 🔥 Trading fields moved to `TradingAccount`
+    # field :role, :string, default: "follower"
+    # field :api_key, :string
+    # field :master_token, :string
+    # field :copy_mode, :string, default: "PUBSUB"
+    
     field :name, :string
-    field :copy_mode, :string, default: "PUBSUB"
+    
+    # ความสัมพันธ์:
+    has_many :trading_accounts, CopyTrade.Accounts.TradingAccount
 
-    # ความสัมพันธ์: 1 คน ตามได้ 1 Master (ในเวอร์ชั่นนี้)
-    belongs_to :following, CopyTrade.Accounts.User, foreign_key: :following_id
-
-    has_many :user_symbols, CopyTrade.Accounts.UserSymbol
-
-    # ความสัมพันธ์คู่แท้
-    belongs_to :partner, CopyTrade.Accounts.User, foreign_key: :partner_id
-
-    # สำหรับฝั่งที่ถูกจอง (Inverse relationship)
-    has_one :followed_by, CopyTrade.Accounts.User, foreign_key: :partner_id
+    # belongs_to :following, CopyTrade.Accounts.User, foreign_key: :following_id
+    # belongs_to :partner, CopyTrade.Accounts.User, foreign_key: :partner_id
+    # has_one :followed_by, CopyTrade.Accounts.User, foreign_key: :partner_id
 
     timestamps(type: :utc_datetime)
   end
@@ -50,16 +46,14 @@ defmodule CopyTrade.Accounts.User do
 
   @doc """
   A changeset for registration.
-  It computes the password hash and generates API Keys.
+  It computes the password hash.
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :password, :role, :name]) # 🔥 ใส่ :role และ :name ตรงนี้
+    |> cast(attrs, [:email, :password, :name])
     |> validate_email(opts)
+    |> validate_required([:name])
     # |> validate_password(opts)
-    # 🔥 เพิ่มการ Validate Role ตรงนี้
-    |> validate_inclusion(:role, ["master", "follower"], message: "must be either master or follower")
-    |> put_api_keys() # 🔥 สั่งสร้าง Key ตรงนี้
   end
 
   @doc """
@@ -172,29 +166,5 @@ defmodule CopyTrade.Accounts.User do
   end
 
   # 🔥 เพิ่มฟังก์ชันสุ่ม Key ท้ายไฟล์
-  defp put_api_keys(changeset) do
-    case changeset do
-      %Ecto.Changeset{valid?: true} ->
-        changeset
-        |> put_change(:api_key, generate_key("sk_live_"))
-        |> generate_master_token_if_needed()
-      _ ->
-        changeset
-    end
-  end
 
-  defp generate_master_token_if_needed(changeset) do
-    # ถ้า Role เป็น Master ให้สร้าง Token ด้วย
-    if get_field(changeset, :role) == "master" do
-      put_change(changeset, :master_token, generate_key("MST-"))
-    else
-      changeset
-    end
-  end
-
-  defp generate_key(prefix) do
-    # สร้างรหัสสุ่ม 16 ตัวอักษร
-    random = :crypto.strong_rand_bytes(16) |> Base.encode16() |> String.downcase()
-    prefix <> random
-  end
 end

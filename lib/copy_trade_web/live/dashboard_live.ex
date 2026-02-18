@@ -6,60 +6,120 @@ defmodule CopyTradeWeb.DashboardLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    user = socket.assigns.current_scope.user
-
-    # เพิ่มการ Subscribe ช่องราคา
     if connected?(socket) do
       Phoenix.PubSub.subscribe(CopyTrade.PubSub, "market_prices")
-      Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals")
       Phoenix.PubSub.subscribe(CopyTrade.PubSub, "dashboard_notifications")
     end
 
-    socket =
-      socket
-      |> assign(prices: %{}) # ป้องกัน Error key :prices not found
-      |> (fn s -> if user.role == "master", do: assign_master_data(s, user), else: assign_follower_data(s, user) end).()
+    {:ok, assign(socket, prices: %{})}
+  end
 
-    {:ok, socket}
+  @impl true
+  def handle_params(%{"id" => id}, _url, socket) do
+    user = socket.assigns.current_scope.user
+    account = Accounts.get_trading_account!(id)
+
+    if account.user_id != user.id do
+      {:noreply,
+       socket
+       |> put_flash(:error, "Unauthorized access")
+       |> redirect(to: ~p"/accounts")}
+    else
+      if connected?(socket) do
+        Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals")
+      end
+
+      socket =
+        socket
+        |> assign(:current_account, account)
+        |> assign(:page_title, "#{account.name} Dashboard")
+
+      socket =
+        if account.role == "master" do
+          assign_master_data(socket, account)
+        else
+          assign_follower_data(socket, account)
+        end
+
+      {:noreply, socket}
+    end
   end
 
   # เตรียมข้อมูลสำหรับ Master
-  defp assign_master_data(socket, user) do
+  defp assign_master_data(socket, account) do
     # (ในอนาคต) ดึงจำนวนคนติดตามมาโชว์ตรงนี้
     follower_count = 0
+    total_profit = Accounts.get_master_total_profit(account.id)
+    chart_data = get_master_chart_data(account.id)
 
-    assign(socket,
+    socket
+    |> assign(
       role: :master,
-      page_title: "แดชบอร์ดผู้นำเทรด (Master)",
-      api_key: user.api_key,
-      master_token: user.master_token,
-      follower_count: follower_count
+      page_title: "Master Dashboard - #{account.name}",
+      api_key: account.api_key,
+      master_token: account.master_token,
+      follower_count: follower_count,
+      master_total_profit: total_profit,
+      chart_data: chart_data
     )
+    |> push_chart_data(chart_data)
+  end
+
+  # ดึงข้อมูลกำไรสะสมของ Master จาก master_trades
+  defp get_master_chart_data(master_account_id) do
+    import Ecto.Query
+    alias CopyTrade.MasterTrade
+    alias CopyTrade.Repo
+
+    from(mt in MasterTrade,
+      where: mt.master_id == ^master_account_id and mt.status == "CLOSED",
+      order_by: [asc: mt.updated_at],
+      select: %{profit: mt.profit, closed_at: mt.updated_at}
+    )
+    |> Repo.all()
+    |> Enum.reduce({[], 0.0}, fn trade, {acc, running_total} ->
+      new_total = running_total + (trade.profit || 0.0)
+      date_str = if trade.closed_at, do: Calendar.strftime(trade.closed_at, "%d/%m %H:%M"), else: "N/A"
+      {acc ++ [%{date: date_str, cumulative_profit: Float.round(new_total, 2), profit: Float.round(trade.profit || 0.0, 2)}], new_total}
+    end)
+    |> elem(0)
   end
 
   # เพิ่มการดึงข้อมูลเทรดในฟังก์ชันของ Follower
-  defp assign_follower_data(socket, user) do
-    current_master = Accounts.get_following_master(user)
+  defp assign_follower_data(socket, account) do
+    current_master = Accounts.get_following_master(account.id)
 
     # 1. ดึงข้อมูล
-    active_pairs = TradePairContext.list_active_pairs(user.id)
-    closed_pairs = TradePairContext.list_closed_pairs(user.id)
-    total_profit = TradePairContext.get_total_profit(user.id)
+    active_pairs = TradePairContext.list_active_pairs(account.id)
+    closed_pairs = TradePairContext.list_closed_pairs(account.id)
+    total_profit = TradePairContext.get_total_profit(account.id)
+    chart_data = TradePairContext.get_cumulative_profit_data(account.id)
 
-    # 2. Subscribe PubSub เพื่อให้หน้าจอขยับเองเมื่อมี Signal
-    if connected?(socket), do: Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals")
-
-    assign(socket,
+    socket
+    |> assign(
       role: :follower,
-      page_title: "พอร์ตโฟลิโอของฉัน (My Portfolio)",
-      api_key: user.api_key,
+      page_title: "Follower Dashboard - #{account.name}",
+      api_key: account.api_key,
       current_master: current_master,
       # Assign data เข้าหน้าจอ
       active_pairs: active_pairs,
       closed_pairs: closed_pairs,
       total_profit: total_profit,
-      prices: %{}
+      chart_data: chart_data
     )
+    |> push_chart_data(chart_data)
+  end
+
+  defp push_chart_data(socket, chart_data) do
+    labels = Enum.map(chart_data, & &1.date)
+    values = Enum.map(chart_data, & &1.cumulative_profit)
+    profits = Enum.map(chart_data, & &1.profit)
+
+    push_event(socket, "chart_data", %{
+      labels: labels,
+      values: values,
+      profits: profits
+    })
   end
 
   @impl true
@@ -90,49 +150,80 @@ defmodule CopyTradeWeb.DashboardLive do
   @impl true
   def handle_info(_msg, socket) do
      # เมื่อมี Signal เข้ามา (ไม่ว่าจะ Open หรือ Close) ให้ดึงข้อมูลใหม่
-     user = socket.assigns.current_scope.user
+     account = socket.assigns.current_account
+     chart_data = TradePairContext.get_cumulative_profit_data(account.id)
 
-     socket = assign(socket,
-       active_pairs: TradePairContext.list_active_pairs(user.id),
-       closed_pairs: TradePairContext.list_closed_pairs(user.id),
-       total_profit: TradePairContext.get_total_profit(user.id)
+     socket = socket
+     |> assign(
+       active_pairs: TradePairContext.list_active_pairs(account.id),
+       closed_pairs: TradePairContext.list_closed_pairs(account.id),
+       total_profit: TradePairContext.get_total_profit(account.id),
+       chart_data: chart_data
      )
+     |> push_chart_data(chart_data)
+
      {:noreply, socket}
   end
 
   # [NEW] รับ Event เมื่อกดปุ่ม Unfollow
   @impl true
   def handle_event("unfollow", _params, socket) do
-    user = socket.assigns.current_scope.user
+    account = socket.assigns.current_account
 
     # 1. อัปเดต Database (เลิกติดตาม)
-    case Accounts.unfollow_master(user) do
-      {:ok, _updated_user} ->
+    case Accounts.unfollow_master(account.id) do
+      {:ok, _updated_account} ->
 
         # 2. [สำคัญ] แจ้ง EA ผ่าน TCP ทันที (Push Notification)
-        # ค้นหา Socket ของ User คนนี้จาก Registry
-        case Registry.lookup(CopyTrade.SocketRegistry, to_string(user.id)) do
+        # ค้นหา Socket ของ Account นี้จาก Registry
+        case Registry.lookup(CopyTrade.Registry, "account:#{account.id}") do
           [{pid, _}] ->
             # สั่งให้ Socket Handler ส่งข้อความ "CMD_STOP" ไปหา EA เดี๋ยวนี้
-            CopyTrade.SocketHandler.send_command(pid, "CMD_STOP")
+            # CopyTrade.SocketHandler.send_command(pid, "CMD_STOP") 
+            # Note: Assuming direct send is not available, we send a message that the handler understands
+            send(pid, {:direct_signal, %{action: "CMD_STOP", reason: "unfollow"}})
 
           [] ->
             :ok # EA ไม่ได้ต่ออยู่ ก็ไม่ต้องทำอะไร
         end
 
-        # 3. แจ้ง Worker ให้หยุด Logic ภายใน
-        case Registry.lookup(CopyTrade.FollowerRegistry, user.id) do
-          [{pid, _}] -> GenServer.cast(pid, {:update_master, nil})
-          [] -> :ok
-        end
+        # 3. แจ้ง Worker ให้หยุด Logic ภายใน (ถ้ามี Worker แยก)
+        # case Registry.lookup(CopyTrade.FollowerRegistry, account.id) do
+        #   [{pid, _}] -> GenServer.cast(pid, {:update_master, nil})
+        #   [] -> :ok
+        # end
 
         {:noreply,
          socket
          |> put_flash(:info, "ยกเลิกการติดตามแล้ว! สั่ง EA ปิดการทำงานทันที")
-         |> assign(current_master: nil, active_pairs: [])} # Reset หน้าจอ
+         |> assign(:current_master, nil)
+         |> assign(:active_pairs, [])} # Reset หน้าจอ
 
       {:error, _} ->
         {:noreply, put_flash(socket, :error, "เกิดข้อผิดพลาด")}
+    end
+  end
+
+  def handle_event("change_mode", %{"mode" => mode}, socket) do
+    account = socket.assigns.current_account
+
+    case Accounts.update_copy_mode(account, mode) do
+      {:ok, updated_account} ->
+        mode_label = case mode do
+          "PUBSUB" -> "📡 PUBSUB (ส่งสัญญาณให้ทุกคน)"
+          "1TO1" -> "🤝 1TO1 (ส่งตรงถึงคู่แท้)"
+          "RECORD" -> "📝 RECORD (บันทึกผลงานอย่างเดียว)"
+          _ -> mode
+        end
+
+        {:noreply,
+         socket
+         |> assign(:current_account, updated_account)
+         |> push_chart_data(socket.assigns.chart_data)
+         |> put_flash(:info, "เปลี่ยนโหมดเป็น #{mode_label} แล้ว")}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "ไม่สามารถเปลี่ยนโหมดได้")}
     end
   end
 
@@ -142,13 +233,51 @@ defmodule CopyTradeWeb.DashboardLive do
     <div class="max-w-6xl mx-auto py-8 px-4"> <%= if @role == :master do %>
         <div class="mb-8 flex items-center justify-between">
           <div>
-             <h1 class="text-3xl font-bold text-gray-900">🏆 แดชบอร์ดผู้นำเทรด (Master)</h1>
-             <p class="text-gray-500">ยินดีต้อนรับ, คุณ <%= @current_scope.user.name %>!</p>
+             <.link navigate={~p"/accounts"} class="text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-2 inline-block">
+               &larr; Back to Accounts
+             </.link>
+             <h1 class="text-3xl font-bold text-gray-900">🏆 <%= @current_account.name %> (Master)</h1>
+             <p class="text-gray-500">Managed by <%= @current_scope.user.name %></p>
           </div>
           <div class="text-right">
              <span class="block text-3xl font-bold text-indigo-600"><%= @follower_count %></span>
              <span class="text-xs text-gray-500 uppercase tracking-wide">ผู้ติดตาม</span>
           </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-3">⚙️ โหมดการทำงาน</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button phx-click="change_mode" phx-value-mode="PUBSUB"
+              class={"rounded-xl border-2 p-4 text-center transition-all #{if @current_account.copy_mode == "PUBSUB", do: "border-indigo-600 bg-indigo-50", else: "border-gray-200 hover:border-gray-400"}"}
+            >
+              <div class="text-2xl mb-1">📡</div>
+              <div class="font-bold text-sm text-gray-900">PUBSUB</div>
+              <div class="text-xs text-gray-500 mt-1">ส่งสัญญาณให้ทุกคน</div>
+            </button>
+
+            <button phx-click="change_mode" phx-value-mode="1TO1"
+              class={"rounded-xl border-2 p-4 text-center transition-all #{if @current_account.copy_mode == "1TO1", do: "border-indigo-600 bg-indigo-50", else: "border-gray-200 hover:border-gray-400"}"}
+            >
+              <div class="text-2xl mb-1">🤝</div>
+              <div class="font-bold text-sm text-gray-900">1TO1</div>
+              <div class="text-xs text-gray-500 mt-1">ส่งตรงถึงคู่แท้</div>
+            </button>
+
+            <button phx-click="change_mode" phx-value-mode="RECORD"
+              class={"rounded-xl border-2 p-4 text-center transition-all #{if @current_account.copy_mode == "RECORD", do: "border-amber-500 bg-amber-50", else: "border-gray-200 hover:border-gray-400"}"}
+            >
+              <div class="text-2xl mb-1">📝</div>
+              <div class="font-bold text-sm text-gray-900">RECORD</div>
+              <div class="text-xs text-gray-500 mt-1">บันทึกผลงานอย่างเดียว</div>
+            </button>
+          </div>
+          <%= if @current_account.copy_mode == "RECORD" do %>
+            <div class="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              <span>⚠️</span>
+              <span>โหมดบันทึกอย่างเดียว — ข้อมูลเทรดจะถูกบันทึกไว้ แต่ <strong>ไม่ส่งสัญญาณ</strong> ให้ Follower</span>
+            </div>
+          <% end %>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -172,7 +301,33 @@ defmodule CopyTradeWeb.DashboardLive do
           </div>
         </div>
 
-        <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm mt-8">
+        <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-200 p-6 mt-8" id="profit-chart-container" phx-hook="CumulativeProfitChart">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                📈 กำไรสะสม (Cumulative Profit)
+              </h3>
+              <p class="text-sm text-gray-500">แสดงกำไรสะสมจากสัญญาณทั้งหมด</p>
+            </div>
+            <div class="text-right">
+              <div class={"text-2xl font-bold #{if @master_total_profit >= 0, do: "text-green-600", else: "text-red-600"}"}
+              >
+                <%= if @master_total_profit > 0, do: "+", else: "" %><%= :erlang.float_to_binary(@master_total_profit, decimals: 2) %> $
+              </div>
+              <div class="text-xs text-gray-400"><%= length(@chart_data) %> signals</div>
+            </div>
+          </div>
+          <div style="height: 300px; position: relative;">
+            <canvas id="cumulative-profit-canvas"></canvas>
+          </div>
+          <%= if @chart_data == [] do %>
+            <div class="flex items-center justify-center py-8">
+              <p class="text-gray-400 text-sm">ยังไม่มีข้อมูลการเทรด</p>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
           <h3 class="text-lg font-bold text-gray-800">Master Sender EA</h3>
           <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Master ที่ต้องการส่งสัญญาณ</p>
           <a href="/downloads/MasterSenderTCP_V6_2.ex5"
@@ -184,8 +339,11 @@ defmodule CopyTradeWeb.DashboardLive do
 
       <% else %>
         <div class="mb-8">
-          <h1 class="text-3xl font-bold text-gray-900">🚀 พอร์ตโฟลิโอของฉัน</h1>
-          <p class="text-gray-500">สวัสดีคุณ <%= @current_scope.user.name %></p>
+          <.link navigate={~p"/accounts"} class="text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-2 inline-block">
+            &larr; Back to Accounts
+          </.link>
+          <h1 class="text-3xl font-bold text-gray-900">🚀 <%= @current_account.name %></h1>
+          <p class="text-gray-500">Portfolio managed by <%= @current_scope.user.name %></p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -227,6 +385,31 @@ defmodule CopyTradeWeb.DashboardLive do
              </div>
              <div class="mt-2 text-xs text-indigo-300">อัปเดตล่าสุด: <%= format_bkk(DateTime.utc_now(), "%H:%M") %></div>
           </div>
+        </div>
+
+        <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-200 p-6" id="profit-chart-container" phx-hook="CumulativeProfitChart">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                📈 กำไรสะสม (Cumulative Profit)
+              </h3>
+              <p class="text-sm text-gray-500">แสดงกำไรสะสมจากการเทรดทั้งหมด</p>
+            </div>
+            <div class="text-right">
+              <div class={"text-2xl font-bold #{if @total_profit >= 0, do: "text-green-600", else: "text-red-600"}"}>
+                <%= if @total_profit > 0, do: "+", else: "" %><%= :erlang.float_to_binary(@total_profit, decimals: 2) %> $
+              </div>
+              <div class="text-xs text-gray-400"><%= length(@chart_data) %> trades</div>
+            </div>
+          </div>
+          <div style="height: 300px; position: relative;">
+            <canvas id="cumulative-profit-canvas"></canvas>
+          </div>
+          <%= if @chart_data == [] do %>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <p class="text-gray-400 text-sm">ยังไม่มีข้อมูลการเทรด</p>
+            </div>
+          <% end %>
         </div>
 
         <div class="mb-12">
@@ -377,17 +560,6 @@ defmodule CopyTradeWeb.DashboardLive do
 
       <% end %>
     </div>
-
-    <footer class="bg-white py-6 border-t border-gray-200">
-      <div class="mx-auto max-w-7xl px-6 text-center lg:px-8">
-        <p class="text-sm leading-5 text-gray-500">
-          <span>&copy; <%= Date.utc_today().year %> CopyTradePro. All rights reserved.</span>
-          <span class="px-3 py-1 text-xs font-semibold bg-orange-100 text-orange600 rounded-full">
-            v6.2.0 (Latest)
-          </span>
-        </p>
-      </div>
-    </footer>
     """
   end
 

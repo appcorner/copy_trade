@@ -16,7 +16,7 @@ defmodule CopyTrade.MasterTrade do
     field :contract_size, :float, default: 100000.0
 
     # Relation
-    belongs_to :master, CopyTrade.Accounts.User, foreign_key: :master_id
+    belongs_to :account, CopyTrade.Accounts.TradingAccount, foreign_key: :master_id
     has_many :trade_pairs, CopyTrade.TradePair # 1 Signal มีหลายคนตาม
 
     timestamps(type: :utc_datetime)

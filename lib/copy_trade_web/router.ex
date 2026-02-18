@@ -7,7 +7,7 @@ defmodule CopyTradeWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {CopyTradeWeb.Layouts, :root}
+    plug :put_root_layout, html: {CopyTradeWeb.Layouts, :menu}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_scope_for_user
@@ -62,8 +62,14 @@ defmodule CopyTradeWeb.Router do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
 
-      # 🔥 เพิ่ม Dashboard เข้ามาใน Session นี้เลย
-      live "/dashboard", DashboardLive, :home
+      # Accounts Management
+      live "/accounts", AccountLive.Index, :index
+      live "/accounts/new", AccountLive.Index, :new
+
+      # Dashboard now requires an ID
+      live "/dashboard/:id", DashboardLive, :show
+      
+      # Legacy/Fallbacks
       live "/admin", AdminDashboardLive
       live "/masters", MasterBoardLive
     end

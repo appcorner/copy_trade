@@ -23,7 +23,8 @@ defmodule CopyTrade.TradePair do
     # field :master_id, :id       # เพิ่ม master_id
 
     # ผูกกับ User (Follower)
-    belongs_to :user, CopyTrade.Accounts.User
+    # ผูกกับ Account (Follower)
+    belongs_to :account, CopyTrade.Accounts.TradingAccount, foreign_key: :account_id
     belongs_to :master_trade, CopyTrade.MasterTrade
 
     timestamps()
@@ -31,7 +32,7 @@ defmodule CopyTrade.TradePair do
 
   def changeset(pair, attrs) do
     pair
-    |> cast(attrs, [:user_id, :master_trade_id, :slave_ticket, :status, :open_price, :close_price, :profit, :slave_volume, :slave_type])
-    |> validate_required([:user_id, :master_trade_id, :status])
+    |> cast(attrs, [:account_id, :master_trade_id, :slave_ticket, :status, :open_price, :close_price, :profit, :slave_volume, :slave_type])
+    |> validate_required([:account_id, :master_trade_id, :status])
   end
 end

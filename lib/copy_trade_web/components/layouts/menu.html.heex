@@ -1,3 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" class="[scrollbar-gutter:stable]">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <.live_title suffix=" · CopyTradePro">
+      <%= assigns[:page_title] || "CopyTradePro" %>
+    </.live_title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bai Jamjuree:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="icon" type="image/svg+xml" href={~p"/images/favicon.svg"} />
+    <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+    <script>
+      function closeMobileMenu() {
+        const menu = document.getElementById('mobile-menu');
+        const iconOpen = document.getElementById('icon-open');
+        const iconClose = document.getElementById('icon-close');
+        if (menu && !menu.classList.contains('hidden')) {
+          menu.classList.add('hidden');
+          if (iconOpen) iconOpen.classList.remove('hidden');
+          if (iconClose) iconClose.classList.add('hidden');
+        }
+      }
+
+      function toggleMobileMenu() {
+        const menu = document.getElementById('mobile-menu');
+        const iconOpen = document.getElementById('icon-open');
+        const iconClose = document.getElementById('icon-close');
+        
+        if (menu.classList.contains('hidden')) {
+          menu.classList.remove('hidden');
+          iconOpen.classList.add('hidden');
+          iconClose.classList.remove('hidden');
+        } else {
+          menu.classList.add('hidden');
+          iconOpen.classList.remove('hidden');
+          iconClose.classList.add('hidden');
+        }
+      }
+
+      // Auto-close mobile menu on LiveView page navigation
+      window.addEventListener("phx:navigate", closeMobileMenu);
+      window.addEventListener("phx:page-loading-start", closeMobileMenu);
+    </script>
+  </head>
+  <body class="bg-slate-50 antialiased">
+    
 <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
     <div class="flex h-16 justify-between">
@@ -12,19 +66,16 @@
         </div>
 
         <% 
-            # ดึง Path ปัจจุบันมาเก็บไว้เช็ค (ถ้าไม่มีให้เป็นค่าว่าง)
             current_path = assigns[:current_path] || "" 
             
-            # ฟังก์ชันช่วยเลือก Class: ถ้าตรงกับ Path ให้สี Indigo (Active), ถ้าไม่ตรงให้สีดำ
             active_class = fn path -> 
             if current_path == path do
-                "inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-900" # Active Style
+                "inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-900"
             else
-                "inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700" # Inactive Style
+                "inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
             end
             end
 
-            # สำหรับ Masters ถ้ามีหน้าย่อย (เช่น /masters/1) ให้เช็คแบบ Prefix
             active_class_prefix = fn prefix ->
             if String.starts_with?(current_path, prefix) do
                 "inline-flex items-center border-b-2 border-indigo-500 px-1 pt-1 text-sm font-medium text-gray-900"
@@ -40,12 +91,8 @@
             </.link>
 
             <%= if assigns[:current_scope] && @current_scope.user do %>
-            <.link navigate={~p"/dashboard"} class={active_class.("/dashboard")}>
-                <%= if @current_scope.user.role == "master" do %>
-                Dashboard Master
-                <% else %>
-                Dashboard
-                <% end %>
+            <.link navigate={~p"/accounts"} class={active_class.("/accounts")}>
+                My Accounts
             </.link>
 
             <.link navigate={~p"/masters"} class={active_class_prefix.("/masters")}>
@@ -61,9 +108,7 @@
             <li class="text-sm text-right">
                 <div class="font-bold text-gray-900"><%= @current_scope.user.email %></div>
                 <div class="text-xs text-gray-500 uppercase tracking-wider font-semibold">
-                <span class={if @current_scope.user.role == "master", do: "text-indigo-600", else: "text-green-600"}>
-                    <%= @current_scope.user.role %>
-                </span>
+                  <!-- User Role Removed -->
                 </div>
             </li>
             <li class="h-8 w-px bg-gray-200" aria-hidden="true"></li>
@@ -114,11 +159,14 @@
 
     <div class="hidden sm:hidden bg-gray-50 border-t border-gray-200 shadow-inner" id="mobile-menu">
     <div class="space-y-1 pb-3 pt-2">
-        <a href="/" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Home</a>
+        <a href="/" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Home</a>
         
         <%= if @current_scope do %>
-        <.link navigate={~p"/dashboard"} class="block border-l-4 border-indigo-500 bg-indigo-50 py-2 pl-3 pr-4 text-base font-medium text-indigo-700">
-            Dashboard
+        <.link navigate={~p"/accounts"} class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:bg-indigo-50 hover:text-indigo-700">
+            My Accounts
+        </.link>
+        <.link navigate={~p"/masters"} class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:bg-indigo-50 hover:text-indigo-700">
+            Masters
         </.link>
         <% end %>
     </div>
@@ -127,23 +175,23 @@
         <%= if @current_scope do %>
         <div class="flex items-center px-4 mb-3">
             <div class="flex-shrink-0">
-            <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-xl">
+            <div class="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-base">
                 <%= String.at(@current_scope.user.email, 0) |> String.upcase() %>
             </div>
             </div>
             <div class="ml-3">
-            <div class="text-base font-medium text-gray-800"><%= @current_scope.user.name || "User" %></div>
-            <div class="text-sm font-medium text-gray-500"><%= @current_scope.user.email %></div>
+            <div class="text-sm font-medium text-gray-800"><%= @current_scope.user.name || "User" %></div>
+            <div class="text-xs font-medium text-gray-500"><%= @current_scope.user.email %></div>
             <div class="mt-1 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
-                <%= @current_scope.user.role %>
+                Member
             </div>
             </div>
         </div>
         <div class="space-y-1">
-            <.link href={~p"/users/settings"} class="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
+            <.link href={~p"/users/settings"} class="block px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800">
             ⚙️ Settings
             </.link>
-            <.link href={~p"/users/log-out"} method="delete" class="block px-4 py-2 text-base font-medium text-red-600 hover:bg-red-50 hover:text-red-800">
+            <.link href={~p"/users/log-out"} method="delete" class="block px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-800">
             🚪 Log out
             </.link>
         </div>
@@ -164,11 +212,20 @@
 <main class="px-4 py-8 sm:px-6 lg:px-8">
   <div class="mx-auto max-w-7xl">
     <.flash_group flash={@flash} />
-    <%= @inner_content %>  </div>
+    <%= @inner_content %>
+  </div>
 </main>
 
-<footer class="bg-white py-12 border-t border-gray-200">
+<footer class="bg-white py-6 border-t border-gray-200">
     <div class="mx-auto max-w-7xl px-6 text-center lg:px-8">
-    <p class="text-sm leading-5 text-gray-500">&copy; <%= Date.utc_today().year %> CopyTradePro. All rights reserved.</p>
+    <p class="text-sm leading-5 text-gray-500">
+      <span>&copy; <%= Date.utc_today().year %> CopyTradePro. All rights reserved.</span>
+      <span class="ml-2 px-3 py-1 text-xs font-semibold bg-orange-100 text-orange-600 rounded-full">
+        v7.0.0
+      </span>
+    </p>
     </div>
 </footer>
+
+  </body>
+</html>

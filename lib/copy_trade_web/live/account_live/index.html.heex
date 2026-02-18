@@ -1,0 +1,92 @@
+<.header>
+  My Trading Accounts
+  <:actions>
+    <.link patch={~p"/accounts/new"}>
+      <.button>New Account</.button>
+    </.link>
+  </:actions>
+</.header>
+
+<div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+  <%= for account <- @accounts do %>
+    <div class="relative flex flex-col bg-white p-6 shadow-lg rounded-xl dark:bg-zinc-800 border dark:border-zinc-700">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+          <%= account.name %>
+        </h3>
+        <span class={"px-2 py-1 text-xs font-semibold rounded-full " <> 
+          if(account.role == "master", do: "bg-blue-100 text-blue-800", else: "bg-green-100 text-green-800")}>
+          <%= String.upcase(account.role) %>
+        </span>
+      </div>
+
+      <div class="text-sm text-gray-500 dark:text-gray-400 space-y-2 mb-6">
+        <div class="flex justify-between">
+          <span>Mode:</span>
+          <span class="font-medium text-gray-700 dark:text-gray-300"><%= account.copy_mode %></span>
+        </div>
+        <div class="flex justify-between">
+          <span>Active:</span>
+          <span class={if account.is_active, do: "text-green-600", else: "text-red-600"}>
+            <%= if account.is_active, do: "Yes", else: "No" %>
+          </span>
+        </div>
+      </div>
+
+      <div class="mt-auto flex gap-2">
+        <.link href={~p"/dashboard/#{account.id}"} class="flex-1">
+          <button class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-200">
+            Open Dashboard
+          </button>
+        </.link>
+        
+        <button phx-click="delete" phx-value-id={account.id} data-confirm="Are you sure?" class="bg-red-50 text-red-600 p-2 rounded-lg hover:bg-red-100 transition">
+          <.icon name="hero-trash" class="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<%= if @live_action == :new do %>
+  <.modal show id="account-modal" on_cancel={JS.patch(~p"/accounts")}>
+    <.header>
+      New Trading Account
+      <:subtitle>Create a new portfolio to manage.</:subtitle>
+    </.header>
+
+    <.simple_form for={@form} id="account-form" phx-change="validate" phx-submit="save">
+      <.input field={@form[:name]} type="text" label="ชื่อบัญชี (Account Name)" placeholder="e.g. My Winner Port" />
+      
+      <div class="mt-4 pt-4 border-t border-gray-100">
+        <label class="block text-sm font-semibold leading-6 text-zinc-800 mb-3">
+          เลือกสถานะของบัญชี...
+        </label>
+
+        <div class="grid grid-cols-2 gap-4">
+          <label class="cursor-pointer group relative">
+            <input type="radio" name="trading_account[role]" value="follower" class="peer sr-only" checked={@form[:role].value == "follower" || @form[:role].value == nil} />
+            <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
+              <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">👥</div>
+              <span class="font-bold text-gray-900 block">ผู้ตาม (Follower)</span>
+              <span class="text-xs text-gray-500 mt-1">คัดลอกเทรดจากคนอื่น</span>
+            </div>
+          </label>
+
+          <label class="cursor-pointer group relative">
+            <input type="radio" name="trading_account[role]" value="master" class="peer sr-only" checked={@form[:role].value == "master"} />
+            <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
+              <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">🏆</div>
+              <span class="font-bold text-gray-900 block">ผู้นำเทรด (Master)</span>
+              <span class="text-xs text-gray-500 mt-1">แชร์สัญญาณเทรด</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <.button phx-disable-with="Saving...">สร้างบัญชีเทรด</.button>
+      </div>
+    </.simple_form>
+  </.modal>
+<% end %>

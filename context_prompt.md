@@ -1,119 +1,134 @@
-นี่คือ **สรุปข้อมูลระบบ Copy Trade (Elixir System)** ฉบับสมบูรณ์ครับ
+นี่คือ **สรุปข้อมูลระบบ Copy Trade v7.0.0 (Elixir System)** ฉบับสมบูรณ์
 
-คุณสามารถ Copy ข้อความทั้งหมดนี้ เก็บใส่ Notepad หรือใช้เป็น **Context Prompt** เมื่อเปิดห้อง Chat ใหม่ เพื่อให้ AI เข้าใจโครงสร้างระบบได้ทันทีโดยไม่ต้องเล่าใหม่ครับ
+ใช้เป็น **Context Prompt** เมื่อเปิดห้อง Chat ใหม่ เพื่อให้ AI เข้าใจโครงสร้างระบบได้ทันที
 
 ---
 
-# 📘 System Architecture Summary: Elixir Copy Trade Platform
+# 📘 System Architecture Summary: CopyTradePro v7.0.0
 
 ## 1. Tech Stack & Infrastructure
 
 * **Backend:** Elixir (Phoenix Framework 1.7+, LiveView)
 * **Database:** PostgreSQL (Normalized Schema)
 * **Protocol:** TCP Socket (Custom Protocol for MT5 Communication)
-* **Frontend:** Phoenix LiveView + Tailwind CSS
+* **Frontend:** Phoenix LiveView + Tailwind CSS v4 + Chart.js v4.4.7
 * **Trading Terminal:** MetaTrader 5 (MQL5)
+* **Font:** Bai Jamjuree (Google Fonts)
 * **Deployment:** Docker Container on Cloud Host (2 vCPU, 4GB RAM)
 * *Capacity Estimate:* ~300-500 Active Slaves per Master / ~10-20 Concurrent Masters.
 
-
-
 ---
 
-## 2. Database Schema (Normalized)
+## 2. Database Schema (v7.0.0 — Multi-Account)
 
 ### A. Users (`users`)
+* เก็บเฉพาะข้อมูล Login
+* **Key Fields:** `id`, `email`, `hashed_password`, `name`
+* **หมายเหตุ:** ไม่มี role, api_key, master_token แล้ว (ย้ายไป `trading_accounts`)
 
-* เก็บข้อมูล Login, Role (`master`, `follower`)
-* **Key Fields:** `api_key` (สำหรับ Slave), `master_token` (สำหรับ Master), `role`
+### B. Trading Accounts (`trading_accounts`) — ✨ NEW
+* 1 User สร้างได้หลาย Account (Master หรือ Follower)
+* **Key Fields:**
+  * `user_id` (FK → users)
+  * `name` (ชื่อพอร์ต)
+  * `role` (master / follower)
+  * `api_key` (Unique, auto-generated `sk_live_...`)
+  * `master_token` (Unique, auto-generated `MST-...` for masters)
+  * `copy_mode` (PUBSUB / 1TO1 / RECORD)
+  * `partner_id` (FK → self, สำหรับ 1TO1)
+  * `following_id` (FK → self, สำหรับ Follower ที่ติดตาม Master)
+  * `is_active` (boolean)
 
-### B. Master Trades (`master_trades`)
-
+### C. Master Trades (`master_trades`)
 * เก็บ Signal ต้นฉบับจาก Master (1 Row ต่อ 1 Order ของ Master)
-* **Key Fields:** `ticket` (Master Ticket), `symbol`, `type` (BUY/SELL), `price`, `volume`, `sl`, `tp`, `status`
+* **Key Fields:** `account_id`, `ticket`, `symbol`, `type` (BUY/SELL), `price`, `volume`, `sl`, `tp`, `status`
 
-### C. Trade Pairs (`trade_pairs`)
-
+### D. Trade Pairs (`trade_pairs`)
 * เก็บข้อมูลการตามของ Follower (ผูกกับ Master Trade)
 * **Key Fields:**
-* `master_trade_id` (FK -> master_trades)
-* `user_id` (FK -> users)
-* `slave_ticket` (Ticket จริงในพอร์ต Slave)
-* `slave_volume` (Lot ที่ออกจริง)
-* `slave_type` (BUY/SELL ที่ออกจริง - รองรับ Reverse Trade)
-* `status` (PENDING -> OPEN -> CLOSED)
-* `profit`, `close_price`
-
-
+  * `master_trade_id` (FK → master_trades)
+  * `account_id` (FK → trading_accounts)
+  * `slave_ticket`, `slave_volume`, `slave_type`
+  * `status` (PENDING → OPEN → CLOSED)
+  * `profit`, `close_price`
 
 ---
 
-## 3. Workflow & Data Flow
+## 3. Copy Modes
 
-### Step 1: Signal Reception (Master)
+| Mode | Icon | พฤติกรรม |
+|------|------|----------|
+| **PUBSUB** | 📡 | กระจายสัญญาณผ่าน Phoenix PubSub ให้ Follower ทุกคน |
+| **1TO1** | 🤝 | ส่งสัญญาณตรงถึง Partner คนเดียวผ่าน Registry/PID |
+| **RECORD** | 📝 | บันทึกข้อมูลเทรดลง DB เท่านั้น ไม่ส่งสัญญาณให้ Follower |
 
+Master สามารถเปลี่ยน Mode ได้ real-time ผ่าน Dashboard
+
+---
+
+## 4. Workflow & Data Flow
+
+### Step 1: Registration & Account Creation
+1. **Register:** สมัครด้วย Email + Name (ไม่เลือก Role ตอนสมัคร)
+2. **Create Account:** สร้าง Trading Account → เลือก Role (Master/Follower) → ระบบ gen API Key + Master Token อัตโนมัติ
+
+### Step 2: Signal Reception (Master)
 1. **Master EA** ส่ง TCP Command: `CMD_OPEN|TYPE|SYMBOL|PRICE|LOT|SL|TP|TICKET`
-2. **TCP Server** รับข้อมูล -> บันทึกลง Table `master_trades`.
-3. **PubSub** Broadcast สัญญาณไปยัง Follower Worker ที่เกี่ยวข้อง.
+2. **TCP Server** รับข้อมูล → บันทึกลง `master_trades`
+3. **TradeSignalRouter** ตรวจสอบ `copy_mode`:
+   - PUBSUB: Broadcast ผ่าน PubSub
+   - 1TO1: ส่งตรงไปที่ Partner PID
+   - RECORD: บันทึกเฉยๆ ไม่ส่งต่อ
 
-### Step 2: Signal Processing (Follower)
+### Step 3: Signal Processing (Follower)
+1. **Follower Worker** รับ Signal → ตรวจสอบเงื่อนไข
+2. สร้าง Record ใน `trade_pairs` สถานะ **PENDING**
+3. ส่ง TCP Command ไปหา Slave EA
 
-1. **Follower Worker** รับ Signal -> ตรวจสอบเงื่อนไข (Subscription).
-2. คำนวณ Money Management (Lot Multiplier / Fixed).
-3. ตรวจสอบเงื่อนไขพิเศษ:
-* **Min Lot Filter:** กรองไม้เล็กออก.
-* **Reverse Trade:** กลับด้าน BUY/SELL และสลับ SL/TP.
+### Step 4: Execution & Acknowledge
+1. **Slave EA** ส่ง **ACK**: `ACK_OPEN|MST_TICKET|SLV_TICKET|SLV_LOT|SLV_TYPE`
+2. อัปเดต `trade_pairs` เป็น **OPEN**
+3. เมื่อปิดออเดอร์ → อัปเดตเป็น **CLOSED** พร้อมบันทึก profit
 
-
-4. สร้าง Record ใน `trade_pairs` สถานะ **PENDING**.
-5. ส่ง TCP Command ไปหา Slave EA.
-
-### Step 3: Execution (Slave EA)
-
-1. **Slave EA** รับคำสั่ง -> ทำการ **Symbol Mapping** (เช่น GOLD -> XAUUSD).
-2. ส่งคำสั่งเปิด Order ไปที่โบรกเกอร์.
-3. เมื่อเปิดสำเร็จ -> ส่ง **ACK** กลับ Server: `ACK_OPEN|MST_TICKET|SLV_TICKET|SLV_LOT|SLV_TYPE`.
-
-### Step 4: Acknowledge (Server)
-
-1. **TCP Server** รับ ACK.
-2. อัปเดต `trade_pairs` เป็นสถานะ **OPEN** พร้อมบันทึก `slave_ticket`, `slave_volume`, `slave_type`.
+### Step 5: Dashboard Update
+* LiveView + PubSub → อัปเดต Active Trades, กำไรรวม, กราฟกำไรสะสม real-time
 
 ---
 
-## 4. Key Features & Logic
+## 5. Key Features & Logic
 
 ### ฝั่ง Backend (Elixir)
+* **Multi-Account:** `Accounts.create_trading_account/2`, `list_trading_accounts/1`
+* **Mode Switching:** `Accounts.update_copy_mode/2` → เปลี่ยน mode แบบ live
+* **TradeSignalRouter:** `dispatch/2` → Route signal ตาม copy_mode
+* **Emergency Kill Switch:** (1TO1 only) Stop Out → สั่งปิดคู่แท้ทันที
+* **Cumulative Profit:** `TradePairContext.get_cumulative_profit_data/1` → time-series data for charts
 
-* **Active Menu Logic:** ใช้ `app.html.heex` ร่วมกับ Hook `mount_current_path` เพื่อเปลี่ยนสีเมนู (Active State) ได้ถูกต้องทั้ง Page Controller และ LiveView.
-* **Dashboard:**
-* **Master View:** แสดง `Master Token`.
-* **Follower View:** แสดง Portfolio และ `API Key`.
-* **Logic:** แสดงผล Type โดยเทียบ `master_trades.type` vs `trade_pairs.slave_type` (เพื่อดูว่าสวนเทรนด์หรือไม่).
-
-
+### ฝั่ง Frontend (LiveView)
+* **Dashboard:** Master/Follower views with profit charts (Chart.js via LiveView Hooks)
+* **Account Management:** CRUD with radio card Role selector
+* **Settings:** API Keys display + user profile management
+* **Mobile Menu:** Responsive with auto-close on navigation
 
 ### ฝั่ง EA (MQL5)
-
-* **Inputs:**
-* `InpMasterToken` / `InpApiKey`
-* `InpLotType` (Multiplier, Fixed)
-* `InpReverseTrade` (True/False)
-* `InpMinLotToCopy` (Filter)
-* `InpCustomMap` (String Input: "GOLD=XAUUSD, BTC=Bitcoin")
-
-
-* **Symbol Normalization:** มีฟังก์ชัน `FixSymbolName` ตรวจสอบชื่อคู่เงินอัตโนมัติ และรองรับ Custom Mapping.
+* **Inputs:** `InpApiKey`, `InpMasterToken`, `InpLotType`, `InpReverseTrade`, `InpMinLotToCopy`, `InpCustomMap`
+* **Symbol Normalization:** `FixSymbolName` + Custom Mapping
 
 ---
 
-## 5. Current File Structure Highlights
+## 6. File Structure
 
-* `lib/copy_trade_web/components/layouts/app.html.heex`: ไฟล์ Layout หลักที่มีเมนูและ Active Logic.
-* `lib/copy_trade/trade/trade_pair_context.ex`: Context จัดการ DB (ใช้ Join `master_trades` แทนการเก็บ field ซ้ำ).
-* `lib/copy_trade_web/live/dashboard_live.ex`: หน้า Dashboard หลัก (ใช้ `on_mount` เช็ค Auth).
-* `lib/copy_trade_web/router.ex`: กำหนด Route และ `live_session` (แยก scope Public/Private).
+* `lib/copy_trade/accounts/trading_account.ex` — TradingAccount schema
+* `lib/copy_trade/accounts.ex` — Accounts context (CRUD, auth, mode switching)
+* `lib/copy_trade/trade_signal_router.ex` — Signal routing (PUBSUB/1TO1/RECORD)
+* `lib/copy_trade/trade_pair_context.ex` — Trade business logic + chart data
+* `lib/copy_trade/tcp_server.ex` — TCP Connection handler (GenServer)
+* `lib/copy_trade_web/live/dashboard_live.ex` — Dashboard (charts, mode switcher)
+* `lib/copy_trade_web/live/account_live/` — Account CRUD pages
+* `lib/copy_trade_web/live/user_live/settings.ex` — Settings (API Keys + profile)
+* `lib/copy_trade_web/components/layouts/menu.html.heex` — Main layout + nav + footer
+* `assets/js/app.js` — LiveView Hooks (CumulativeProfitChart)
 
 ---
 
-**พร้อมสำหรับการพัฒนาต่อในเฟสถัดไปครับ!** (เช่น ระบบ Billing, Multi-Master Strategy, หรือ Notification Line/Telegram) 🚀
+**Version: v7.0.0 | Last Updated: 2026-02-18** 🚀

@@ -4,7 +4,7 @@ defmodule CopyTradeWeb.Api.FollowerController do
 
   # EA จะยิงมาที่: GET /api/check_status?api_key=XXXXX
   def check_status(conn, %{"api_key" => api_key}) do
-    case Accounts.get_user_by_api_key(api_key) do
+    case Accounts.get_account_by_api_key(api_key) do
       nil ->
         # API Key ไม่ถูกต้อง
         json(conn, %{status: "error", message: "Invalid API Key"})

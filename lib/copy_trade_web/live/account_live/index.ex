@@ -12,7 +12,7 @@ defmodule CopyTradeWeb.AccountLive.Index do
       accounts = Accounts.list_trading_accounts(user.id)
       {:ok, assign(socket, :current_user, user) |> assign(:accounts, accounts)}
     else
-      {:ok, redirect(socket, to: ~p"/users/log_in")}
+      {:ok, redirect(socket, to: ~p"/users/log-in")}
     end
   end
 

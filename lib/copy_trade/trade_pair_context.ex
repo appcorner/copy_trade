@@ -8,7 +8,7 @@ defmodule CopyTrade.TradePairContext do
   alias CopyTrade.TradePair # (ต้องสร้าง Schema นี้ด้วย เดี๋ยวผมให้ code ต่อไป)
   alias CopyTrade.MasterTrade
   alias CopyTrade.Cache.SymbolCache
-  alias CopyTrade.Accounts.TradingAccount
+  # alias CopyTrade.Accounts.TradingAccount
 
   # 1. สร้างคู่เทรดใหม่ (สถานะ PENDING)
   def create_trade_pair(attrs) do

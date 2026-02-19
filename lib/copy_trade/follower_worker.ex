@@ -5,26 +5,32 @@ defmodule CopyTrade.FollowerWorker do
 
   # --- Client API & Init ---
   def start_link(args) do
-    name = {:via, Registry, {CopyTrade.FollowerRegistry, args[:user_id]}}
+    # tcp_server ส่ง user_id: account_id มา
+    account_id = args[:user_id]
+    name = {:via, Registry, {CopyTrade.FollowerRegistry, account_id}}
     GenServer.start_link(__MODULE__, args, name: name)
   end
 
   def init(args) do
-    user_id = args[:user_id]
+    # จริงๆ คือ account_id จาก tcp_server
+    account_id = args[:user_id]
 
-    # ดึงข้อมูล User เพื่อดูว่าตามใครอยู่
-    user = CopyTrade.Accounts.get_user!(user_id)
+    # ดึงข้อมูล TradingAccount เพื่อดูว่าตามใครอยู่
+    account = CopyTrade.Accounts.get_trading_account!(account_id)
 
-    Logger.info("👷 Worker started for User [#{user_id}]")
+    Logger.info(
+      "[WORKER] Started for Account [#{account_id}] - following: #{inspect(account.following_id)}"
+    )
 
     # Subscribe รอรับ Signal
     Phoenix.PubSub.subscribe(CopyTrade.PubSub, "trade_signals")
 
-    {:ok, %{
-      user_id: user_id,
-      multiplier: 1.0,
-      following_id: user.following_id # เก็บ ID ของ Master ที่เราตาม
-    }}
+    {:ok,
+     %{
+       user_id: account_id,
+       multiplier: 1.0,
+       following_id: account.following_id
+     }}
   end
 
   # --- Handle Signal ---
@@ -89,9 +95,12 @@ defmodule CopyTrade.FollowerWorker do
     else
       # 2. บันทึก DB สถานะ PENDING
       db_params = %{
-        user_id: state.user_id,
-        master_id: signal.master_id,       # 🔥 ส่ง master_id
-        master_trade_id: signal.master_trade_id, # 🔥 รับ ID มาจาก PubSub
+        # ตรงกับ TradePair schema
+        account_id: state.user_id,
+        # 🔥 ส่ง master_id
+        master_id: signal.master_id,
+        # 🔥 รับ ID มาจาก PubSub
+        master_trade_id: signal.master_trade_id,
         master_ticket: signal.master_ticket,
         slave_ticket: 0,
         symbol: signal.symbol,
@@ -107,7 +116,10 @@ defmodule CopyTrade.FollowerWorker do
         {:ok, _pair} ->
           # 3. สร้าง Command ส่งไป TCP
           # Format: CMD_OPEN|BUY|SYMBOL|PRICE|VOLUME|SL|TP|MASTER_TICKET
-          command = "CMD_OPEN|#{type}|#{signal.symbol}|#{signal.price}|#{signal.volume}|#{signal.sl}|#{signal.tp}|#{signal.master_ticket}"
+          command =
+            "CMD_OPEN|#{type}|#{signal.symbol}|#{signal.price}|#{signal.volume}|#{signal.sl}|#{signal.tp}|#{signal.master_ticket}"
+
+          IO.inspect(command, label: "command")
 
           send_tcp_command(state.user_id, command)
           Logger.info("🚀 [#{state.user_id}] Sent OPEN to Slave: #{command}")
@@ -138,9 +150,10 @@ defmodule CopyTrade.FollowerWorker do
 
   # Helper: ส่งข้อมูลเข้า Socket
   defp send_tcp_command(user_id, command) do
-    case Registry.lookup(CopyTrade.SocketRegistry, user_id) do
+    case Registry.lookup(CopyTrade.SocketRegistry, to_string(user_id)) do
       [{pid, _}] ->
         CopyTrade.SocketHandler.send_command(pid, command)
+
       [] ->
         Logger.error("❌ Socket not found for user #{user_id}")
     end

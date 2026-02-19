@@ -21,6 +21,7 @@ defmodule CopyTrade.TradeSignalRouter do
 
       "PUBSUB" ->
         # โหมดมหาชน: กระจายผ่าน Phoenix PubSub (Scalable)
+        # IO.inspect(signal_data, label: "signal_data")
         Phoenix.PubSub.broadcast(CopyTrade.PubSub, "trade_signals", signal_data)
 
       "RECORD" ->

@@ -5,7 +5,9 @@ defmodule CopyTrade.TradePairContext do
   """
   import Ecto.Query, warn: false
   alias CopyTrade.Repo
-  alias CopyTrade.TradePair # (ต้องสร้าง Schema นี้ด้วย เดี๋ยวผมให้ code ต่อไป)
+
+  # (ต้องสร้าง Schema นี้ด้วย เดี๋ยวผมให้ code ต่อไป)
+  alias CopyTrade.TradePair
   alias CopyTrade.MasterTrade
   alias CopyTrade.Cache.SymbolCache
   # alias CopyTrade.Accounts.TradingAccount
@@ -19,9 +21,10 @@ defmodule CopyTrade.TradePairContext do
 
   # 2. เช็คว่า Master Ticket นี้เคยเปิดไปหรือยัง (กันซ้ำ)
   def exists?(account_id, master_ticket) do
-    query = from t in TradePair,
-      join: m in assoc(t, :master_trade),
-      where: t.account_id == ^account_id and m.ticket == ^master_ticket
+    query =
+      from t in TradePair,
+        join: m in assoc(t, :master_trade),
+        where: t.account_id == ^account_id and m.ticket == ^master_ticket
 
     Repo.exists?(query)
   end
@@ -29,12 +32,16 @@ defmodule CopyTrade.TradePairContext do
   # 3. อัปเดต Slave Ticket (เมื่อ EA ตอบกลับ ACK_OPEN)
   def update_slave_ticket(account_id, master_ticket, slave_ticket, slave_volume, slave_type) do
     # หา pair ที่ตรงกันและยังเป็น PENDING
-    query = from t in TradePair,
-      join: m in assoc(t, :master_trade),
-      where: t.account_id == ^account_id and m.ticket == ^master_ticket and t.status == "PENDING"
+    query =
+      from t in TradePair,
+        join: m in assoc(t, :master_trade),
+        where:
+          t.account_id == ^account_id and m.ticket == ^master_ticket and t.status == "PENDING"
 
     case Repo.one(query) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       pair ->
         pair
         |> Ecto.Changeset.change(%{
@@ -50,32 +57,37 @@ defmodule CopyTrade.TradePairContext do
 
   # 4. ดึง Slave Ticket เพื่อไปสั่งปิด
   def get_slave_ticket(account_id, master_ticket) do
-    query = from t in TradePair,
-      join: m in assoc(t, :master_trade),
-      where: t.account_id == ^account_id and m.ticket == ^master_ticket,
-      select: t.slave_ticket
+    query =
+      from t in TradePair,
+        join: m in assoc(t, :master_trade),
+        where: t.account_id == ^account_id and m.ticket == ^master_ticket,
+        select: t.slave_ticket
 
     Repo.one(query)
   end
 
   # 4.1 ดึง Master Ticket โดยใช้ Slave Ticket
   def get_master_ticket_by_slave(account_id, slave_ticket) do
-    query = from t in TradePair,
-      join: m in assoc(t, :master_trade),
-      where: t.account_id == ^account_id and t.slave_ticket == ^slave_ticket,
-      select: m.ticket
+    query =
+      from t in TradePair,
+        join: m in assoc(t, :master_trade),
+        where: t.account_id == ^account_id and t.slave_ticket == ^slave_ticket,
+        select: m.ticket
 
     Repo.one(query)
   end
 
   # 5. บันทึกการปิดออเดอร์ (เมื่อ EA ตอบกลับ ACK_CLOSE)
   def mark_as_closed(account_id, master_ticket, close_price, profit) do
-    query = from t in TradePair,
-      join: m in assoc(t, :master_trade),
-      where: t.account_id == ^account_id and m.ticket == ^master_ticket
+    query =
+      from t in TradePair,
+        join: m in assoc(t, :master_trade),
+        where: t.account_id == ^account_id and m.ticket == ^master_ticket
 
     case Repo.one(query) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       pair ->
         pair
         |> Ecto.Changeset.change(%{
@@ -90,11 +102,14 @@ defmodule CopyTrade.TradePairContext do
 
   # 5.1 บันทึกการปิดออเดอร์กรณี Stop Out
   def mark_as_so_closed(account_id, slave_ticket, close_price, profit) do
-    query = from t in TradePair,
-      where: t.account_id == ^account_id and t.slave_ticket == ^slave_ticket
+    query =
+      from t in TradePair,
+        where: t.account_id == ^account_id and t.slave_ticket == ^slave_ticket
 
     case Repo.one(query) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       pair ->
         pair
         |> Ecto.Changeset.change(%{
@@ -115,9 +130,7 @@ defmodule CopyTrade.TradePairContext do
 
       # Preload เพื่อให้ใน Code เรียก t.master_trade.symbol ได้
       preload: [master_trade: m],
-
       order_by: [desc: t.inserted_at],
-
       select: t
     )
     |> Repo.all()
@@ -127,7 +140,7 @@ defmodule CopyTrade.TradePairContext do
   def list_closed_pairs(account_id, limit \\ 25) do
     from(t in TradePair,
       join: m in assoc(t, :master_trade),
-      where: t.account_id == ^account_id and t.status == "CLOSED" and t.close_price > 0.0,
+      where: t.account_id == ^account_id and t.status == "CLOSED" and not is_nil(t.close_price),
       order_by: [desc: t.closed_at],
       limit: ^limit,
       preload: [master_trade: m]
@@ -137,9 +150,10 @@ defmodule CopyTrade.TradePairContext do
 
   # 8. คำนวณกำไรรวม
   def get_total_profit(account_id) do
-    query = from t in TradePair,
-      where: t.account_id == ^account_id and t.status == "CLOSED" and t.close_price > 0.0,
-      select: sum(t.profit)
+    query =
+      from t in TradePair,
+        where: t.account_id == ^account_id and t.status == "CLOSED" and not is_nil(t.close_price),
+        select: sum(t.profit)
 
     Repo.one(query) || 0.0
   end
@@ -147,19 +161,28 @@ defmodule CopyTrade.TradePairContext do
   # 9. ดึงข้อมูลกำไรสะสมแบบ time-series สำหรับกราฟ
   def get_cumulative_profit_data(account_id) do
     from(t in TradePair,
-      where: t.account_id == ^account_id and t.status == "CLOSED" and t.close_price > 0.0,
+      where: t.account_id == ^account_id and t.status == "CLOSED" and not is_nil(t.close_price),
       order_by: [asc: t.closed_at],
       select: %{profit: t.profit, closed_at: t.closed_at}
     )
     |> Repo.all()
     |> Enum.reduce({[], 0.0}, fn trade, {acc, running_total} ->
       new_total = running_total + (trade.profit || 0.0)
-      date_str = if trade.closed_at, do: Calendar.strftime(trade.closed_at, "%d/%m %H:%M"), else: "N/A"
-      {acc ++ [%{date: date_str, cumulative_profit: Float.round(new_total, 2), profit: Float.round(trade.profit || 0.0, 2)}], new_total}
+
+      date_str =
+        if trade.closed_at, do: Calendar.strftime(trade.closed_at, "%d/%m %H:%M"), else: "N/A"
+
+      {acc ++
+         [
+           %{
+             date: date_str,
+             cumulative_profit: Float.round(new_total, 2),
+             profit: Float.round(trade.profit || 0.0, 2)
+           }
+         ], new_total}
     end)
     |> elem(0)
   end
-
 
   # 1. ฟังก์ชันใหม่: บันทึก Signal ของ Master ลง DB
   def create_master_trade(attrs) do
@@ -178,7 +201,9 @@ defmodule CopyTrade.TradePairContext do
   # 3. (Optional) ฟังก์ชัน Update Master Trade (ตอนปิดออเดอร์)
   def close_master_trade(master_id, ticket, close_price, profit) do
     case Repo.get_by(MasterTrade, master_id: master_id, ticket: ticket) do
-      nil -> {:error, :not_found}
+      nil ->
+        {:error, :not_found}
+
       trade ->
         trade
         |> Ecto.Changeset.change(%{
@@ -194,12 +219,14 @@ defmodule CopyTrade.TradePairContext do
   def close_master_and_followers(master_id, master_ticket, close_price, actual_profit) do
     Repo.transaction(fn ->
       # 1. ดึงข้อมูล Master เพื่อเอา Volume และ Type มาเป็นค่าคงที่
-      query_master = Repo.get_by(MasterTrade, ticket: master_ticket, master_id: master_id, status: "OPEN")
+      query_master =
+        Repo.get_by(MasterTrade, ticket: master_ticket, master_id: master_id, status: "OPEN")
 
       case query_master do
         nil ->
-          IO.puts "Warning: Master ticket #{master_ticket} not found or already closed."
+          IO.puts("Warning: Master ticket #{master_ticket} not found or already closed.")
           :ok
+
         master ->
           # 2. อัปเดตสถานะ Master เป็น CLOSED
           master
@@ -211,11 +238,14 @@ defmodule CopyTrade.TradePairContext do
           |> Repo.update!()
 
           # 3. ดึงรายการ Slave ทั้งหมดที่เปิดอยู่มาจัดการ
-          query = from(p in TradePair,
-            join: m in assoc(p, :master_trade),
-            where: m.master_id == ^master_id and
+          query =
+            from(p in TradePair,
+              join: m in assoc(p, :master_trade),
+              where:
+                m.master_id == ^master_id and
                   m.ticket == ^master_ticket and
-                  p.status == "OPEN")
+                  p.status == "OPEN"
+            )
 
           slave_pairs = Repo.all(query)
 
@@ -240,6 +270,7 @@ defmodule CopyTrade.TradePairContext do
             })
             |> Repo.update!()
           end)
+
           :ok
       end
     end)
@@ -253,12 +284,15 @@ defmodule CopyTrade.TradePairContext do
     # ดึงข้อมูล Master เพื่อเอา account_id มาเป็น Key
     master = trade_pair.master_trade
 
-    slave_symbol_info = SymbolCache.get_info(trade_pair.account_id, master.symbol) || %{contract_size: 100000.0, digits: 5}
+    slave_symbol_info =
+      SymbolCache.get_info(trade_pair.account_id, master.symbol) ||
+        %{contract_size: 100_000.0, digits: 5}
 
     # ตรวจสอบว่าใน Map 'prices' มีราคาของ Master คนนี้และ Symbol นี้อยู่หรือไม่
     case Map.get(prices, {master.master_id, master.symbol}) do
       nil ->
-        0.0 # หากยังไม่มีข้อมูลราคา ให้แสดงกำไรเป็น 0.0 ไปก่อน เพื่อป้องกัน Error
+        # หากยังไม่มีข้อมูลราคา ให้แสดงกำไรเป็น 0.0 ไปก่อน เพื่อป้องกัน Error
+        0.0
 
       price_data ->
         # ส่งไปคำนวณตามสูตรคณิตศาสตร์
@@ -280,6 +314,7 @@ defmodule CopyTrade.TradePairContext do
       "SELL" ->
         # สูตร: (ราคาเปิด - ราคา Ask ปัจจุบัน) * Lot * ContractSize
         (trade.open_price - ask) * trade.slave_volume * contract_size
+
       _ ->
         0.0
     end
@@ -288,10 +323,13 @@ defmodule CopyTrade.TradePairContext do
   def reconcile_master_orders(master_id, actual_master_tickets) do
     Repo.transaction(fn ->
       # 1. ค้นหา Master Ticket ใน DB ที่สถานะเป็น OPEN แต่ไม่อยู่ใน Snapshot ที่ส่งมา
-      query = from(m in MasterTrade,
-              where: m.master_id == ^master_id and
-                    m.status == "OPEN" and
-                    m.ticket not in ^actual_master_tickets)
+      query =
+        from(m in MasterTrade,
+          where:
+            m.master_id == ^master_id and
+              m.status == "OPEN" and
+              m.ticket not in ^actual_master_tickets
+        )
 
       dead_master_tickets = Repo.all(from(m in query, select: m.ticket))
 
@@ -302,8 +340,9 @@ defmodule CopyTrade.TradePairContext do
         # 3. สำคัญมาก: สั่งปิดไม้ Slave (TradePair) ทุกตัวที่ตาม Master Ticket เหล่านี้อยู่
         # เพื่อให้ระบบ Slave รู้ว่าต้องกวาดล้างฝั่งตัวเองด้วย
         from(p in TradePair,
-            join: m in assoc(p, :master_trade),
-            where: m.ticket in ^dead_master_tickets and p.status == "OPEN")
+          join: m in assoc(p, :master_trade),
+          where: m.ticket in ^dead_master_tickets and p.status == "OPEN"
+        )
         |> Repo.update_all(set: [status: "CLOSED"])
       end
 
@@ -315,9 +354,10 @@ defmodule CopyTrade.TradePairContext do
     Repo.transaction(fn ->
       # --- ส่วนที่ 1: กวาดล้าง DB (ไม้ที่ใน DB มีแต่ใน EA ไม่มี) ---
       # ค้นหาไม้ที่ใน DB บอกว่า OPEN แต่ใน EA ปิดไปแล้ว
-      db_open_tickets_query = from p in TradePair,
-                              where: p.account_id == ^follower_id and p.status == "OPEN",
-                              select: p.slave_ticket
+      db_open_tickets_query =
+        from p in TradePair,
+          where: p.account_id == ^follower_id and p.status == "OPEN",
+          select: p.slave_ticket
 
       db_tickets = Repo.all(db_open_tickets_query)
 
@@ -325,7 +365,9 @@ defmodule CopyTrade.TradePairContext do
       to_close_in_db = db_tickets -- actual_slave_tickets
 
       if length(to_close_in_db) > 0 do
-        from(p in TradePair, where: p.account_id == ^follower_id and p.slave_ticket in ^to_close_in_db)
+        from(p in TradePair,
+          where: p.account_id == ^follower_id and p.slave_ticket in ^to_close_in_db
+        )
         |> Repo.update_all(set: [status: "CLOSED"])
       end
 
@@ -333,7 +375,8 @@ defmodule CopyTrade.TradePairContext do
       # ไม้ที่เปิดอยู่ใน EA แต่ระบบ Copy Trade ไม่รู้จัก (อาจจะเปิดมือเอง)
       zombie_in_ea = actual_slave_tickets -- db_tickets
 
-      zombie_in_ea # คืนค่ารายการไม้ผีกลับไปเพื่อให้ TCP Handler สั่งปิด
+      # คืนค่ารายการไม้ผีกลับไปเพื่อให้ TCP Handler สั่งปิด
+      zombie_in_ea
     end)
   end
 
@@ -346,12 +389,14 @@ defmodule CopyTrade.TradePairContext do
 
     payload = %{
       event: "stop_out_detected",
-      user_id: account.id, # Keep payload key as user_id for frontend compatibility? Or change?
-                # Changing to account_id might break frontend if it expects user_id. 
-                # But semantically it is account_id.
-                # Assuming frontend just displays it.
+      # Keep payload key as user_id for frontend compatibility? Or change?
+      user_id: account.id,
+      # Changing to account_id might break frontend if it expects user_id.
+      # But semantically it is account_id.
+      # Assuming frontend just displays it.
       user_name: account.name || "Account ##{account.id}",
-      target: symbol_or_type, # เช่น "ACCOUNT" หรือ "XAUUSD"
+      # เช่น "ACCOUNT" หรือ "XAUUSD"
+      target: symbol_or_type,
       message: "🚨 ระบบตรวจพบ Stop Out จาก #{account.name || "พอร์ต"}!",
       timestamp: DateTime.utc_now()
     }
@@ -372,10 +417,13 @@ defmodule CopyTrade.TradePairContext do
   ส่งคำสั่งปิด master ออเดอร์
   """
   def mark_master_trade_as_closed(partner_id, master_ticket) do
-    query_master = Repo.get_by(MasterTrade, ticket: master_ticket, master_id: partner_id, status: "OPEN")
+    query_master =
+      Repo.get_by(MasterTrade, ticket: master_ticket, master_id: partner_id, status: "OPEN")
+
     case query_master do
       nil ->
         :ok
+
       master_trade ->
         # 2. อัปเดตสถานะ Master เป็น CLOSED พร้อมบันทึกเหตุผล
         master_trade

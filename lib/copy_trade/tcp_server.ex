@@ -142,7 +142,7 @@ defmodule CopyTrade.SocketHandler do
       master ->
         # set follower mode same as master
         Accounts.update_account_copy_mode(state.account_id, master.copy_mode)
-        
+
         if master.copy_mode == "1TO1" do
           partner_id = state.account_id
           if master.partner_id == nil || master.partner_id == partner_id do
@@ -321,12 +321,12 @@ defmodule CopyTrade.SocketHandler do
 
     status_msg =
       if account.following_id do
-        "STATUS_ACTIVE"
+        "STATUS_ACTIVE\n"
       else
-        "STATUS_INACTIVE"
+        "STATUS_INACTIVE\n"
       end
 
-    :gen_tcp.send(state.socket, status_msg <> "\n")
+    :gen_tcp.send(state.socket, status_msg)
     state
   end
 

@@ -336,7 +336,8 @@ defmodule CopyTrade.Accounts do
   def list_masters_with_counts do
     from(t in TradingAccount,
       where: t.role == "master" and t.is_active == true,
-      left_join: f in TradingAccount, on: f.following_id == t.id,
+      left_join: f in TradingAccount,
+      on: f.following_id == t.id,
       group_by: t.id,
       select: %{
         master_id: t.id,
@@ -372,7 +373,7 @@ defmodule CopyTrade.Accounts do
     account.following
   end
 
-  def update_account_copy_mode(account_id, mode) when mode in ["1TO1", "PUBSUB"] do
+  def update_account_copy_mode(account_id, mode) when mode in ["1TO1", "PUBSUB", "RECORD"] do
     account = get_trading_account!(account_id)
 
     account
@@ -383,10 +384,11 @@ defmodule CopyTrade.Accounts do
   # แถม: ฟังก์ชันสำหรับ Bind คู่แท้ (Partner)
   def bind_partner(master_id, follower_id) do
     # find partner_id exist in other master and remove it
-    query = from t in TradingAccount,
-              where: t.partner_id == ^follower_id and t.id != ^master_id,
-              select: t.id
-    
+    query =
+      from t in TradingAccount,
+        where: t.partner_id == ^follower_id and t.id != ^master_id,
+        select: t.id
+
     Repo.all(query)
     |> Enum.each(fn other_master_id ->
       unbind_partner(other_master_id)
@@ -406,12 +408,17 @@ defmodule CopyTrade.Accounts do
     |> Ecto.Changeset.cast(%{partner_id: nil}, [:partner_id])
     |> Repo.update()
   end
-  
+
   # Note: logic for symbols still uses user_id for now as requested plan did not specify migrating symbols.
   # Ideally we should migrate UserSymbol to AccountSymbol later.
 
   def upsert_user_symbol(account_id, symbol, contract_size, digits) do
-    attrs = %{account_id: account_id, symbol: symbol, contract_size: contract_size, digits: digits}
+    attrs = %{
+      account_id: account_id,
+      symbol: symbol,
+      contract_size: contract_size,
+      digits: digits
+    }
 
     case Repo.get_by(UserSymbol, account_id: account_id, symbol: symbol) do
       nil -> %UserSymbol{}
@@ -437,4 +444,3 @@ defmodule CopyTrade.Accounts do
     end
   end
 end
-

@@ -415,11 +415,11 @@ defmodule CopyTradeWeb.DashboardLive do
           <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Master ที่ต้องการส่งสัญญาณ</p>
 
           <a
-            href="/downloads/MasterSenderTCP_V6_2.ex5"
+            href="/downloads/MasterSenderTCP_V7_0.ex5"
             class="inline-block mt-4 px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition"
             download
           >
-            📥 Download v6.2 (MQ5)
+            📥 Download v7.0 (MQ5)
           </a>
         </div>
       <% else %>
@@ -742,11 +742,11 @@ defmodule CopyTradeWeb.DashboardLive do
           <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Follower ที่ต้องการคัดลอกไม้</p>
 
           <a
-            href="/downloads/SlaveTCP_V6_2.ex5"
+            href="/downloads/SlaveTCP_V7_0.ex5"
             class="inline-block mt-4 px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"
             download
           >
-            📥 Download v6.2 (MQ5)
+            📥 Download v7.0 (MQ5)
           </a>
         </div>
       <% end %>

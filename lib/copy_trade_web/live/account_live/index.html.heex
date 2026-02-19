@@ -1,63 +1,141 @@
-<.header>
-  My Trading Accounts
-  <:actions>
+<div class="max-w-4xl mx-auto py-2">
+  <%!-- Header --%>
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">💼 บัญชีเทรดของฉัน</h1>
+
+      <p class="text-gray-500 text-sm mt-1">จัดการบัญชี Master และ Follower ทั้งหมดของคุณ</p>
+    </div>
+
     <.link patch={~p"/accounts/new"}>
-      <.button>New Account</.button>
+      <button class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-sm">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        สร้างบัญชีใหม่
+      </button>
     </.link>
-  </:actions>
-</.header>
+  </div>
 
-<div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-  <%= for account <- @accounts do %>
-    <div class="relative flex flex-col bg-white p-6 shadow-lg rounded-xl dark:bg-zinc-800 border dark:border-zinc-700">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100">
-          <%= account.name %>
-        </h3>
-        <span class={"px-2 py-1 text-xs font-semibold rounded-full " <> 
-          if(account.role == "master", do: "bg-blue-100 text-blue-800", else: "bg-green-100 text-green-800")}>
-          <%= String.upcase(account.role) %>
-        </span>
-      </div>
+  <%!-- Accounts Grid --%>
+  <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <%= for account <- @accounts do %>
+      <div
+        class="relative flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-lg hover:border-indigo-300 transition-all duration-200 group"
+        id={"account-card-#{account.id}"}
+      >
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <div class={[
+              "w-12 h-12 rounded-xl flex items-center justify-center text-2xl border shadow-sm",
+              if(account.role == "master",
+                do: "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200/50",
+                else: "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200/50"
+              )
+            ]}>
+              <%= if account.role == "master", do: "🏆", else: "👥" %>
+            </div>
 
-      <div class="text-sm text-gray-500 dark:text-gray-400 space-y-2 mb-6">
-        <div class="flex justify-between">
-          <span>Mode:</span>
-          <span class="font-medium text-gray-700 dark:text-gray-300"><%= account.copy_mode %></span>
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                <%= account.name %>
+              </h2>
+
+              <span class={[
+                "inline-flex items-center gap-1 text-xs font-semibold",
+                if(account.role == "master", do: "text-amber-600", else: "text-emerald-600")
+              ]}>
+                <%= String.upcase(account.role) %>
+              </span>
+            </div>
+          </div>
         </div>
-        <div class="flex justify-between">
-          <span>Active:</span>
-          <span class={if account.is_active, do: "text-green-600", else: "text-red-600"}>
-            <%= if account.is_active, do: "Yes", else: "No" %>
-          </span>
-        </div>
-      </div>
 
-      <div class="mt-auto flex gap-2">
-        <.link href={~p"/dashboard/#{account.id}"} class="flex-1">
-          <button class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-200">
-            Open Dashboard
+        <div class="space-y-2 text-sm text-gray-500 mb-4">
+          <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+            <span class="text-gray-400">Mode</span>
+
+            <span class="font-semibold text-gray-700 inline-flex items-center gap-1">
+              <span class={[
+                "w-1.5 h-1.5 rounded-full",
+                if(account.copy_mode == "PUBSUB", do: "bg-green-400 animate-pulse", else: "bg-gray-300")
+              ]}>
+              </span>
+              <%= account.copy_mode %>
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+            <span class="text-gray-400">Active</span>
+
+            <span class={[
+              "font-semibold inline-flex items-center gap-1",
+              if(account.is_active, do: "text-emerald-600", else: "text-red-500")
+            ]}>
+              <span class={[
+                "w-1.5 h-1.5 rounded-full",
+                if(account.is_active, do: "bg-emerald-400", else: "bg-red-400")
+              ]}>
+              </span>
+              <%= if account.is_active, do: "Active", else: "Inactive" %>
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-auto flex gap-2">
+          <.link href={~p"/dashboard/#{account.id}"} class="flex-1">
+            <button class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm active:scale-95 transition-all">
+              Open Dashboard
+            </button>
+          </.link>
+
+          <button
+            phx-click="delete"
+            phx-value-id={account.id}
+            data-confirm="ต้องการลบบัญชีนี้ใช่ไหม?"
+            class="p-2.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 hover:text-red-600 active:scale-95 transition-all border border-red-100"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+              />
+            </svg>
           </button>
-        </.link>
-        
-        <button phx-click="delete" phx-value-id={account.id} data-confirm="Are you sure?" class="bg-red-50 text-red-600 p-2 rounded-lg hover:bg-red-100 transition">
-          <.icon name="hero-trash" class="w-5 h-5" />
-        </button>
+        </div>
       </div>
+    <% end %>
+  </div>
+
+  <%!-- Empty State --%>
+  <%= if @accounts == [] do %>
+    <div class="text-center py-12">
+      <div class="text-4xl mb-3">📭</div>
+
+      <p class="text-gray-500 text-base">ยังไม่มีบัญชีเทรด</p>
+
+      <p class="text-gray-400 text-sm mt-1">กดปุ่ม "สร้างบัญชีใหม่" เพื่อเริ่มต้นใช้งาน</p>
     </div>
   <% end %>
 </div>
 
 <%= if @live_action == :new do %>
   <.modal show id="account-modal" on_cancel={JS.patch(~p"/accounts")}>
-    <.header>
-      New Trading Account
-      <:subtitle>Create a new portfolio to manage.</:subtitle>
-    </.header>
+    <div class="mb-5">
+      <h2 class="text-xl font-bold text-gray-900">สร้างบัญชีเทรดใหม่</h2>
+
+      <p class="text-sm text-gray-500 mt-1">เลือกบทบาทและตั้งชื่อบัญชีของคุณ</p>
+    </div>
 
     <.simple_form for={@form} id="account-form" phx-change="validate" phx-submit="save">
-      <.input field={@form[:name]} type="text" label="ชื่อบัญชี (Account Name)" placeholder="e.g. My Winner Port" />
-      
+      <.input
+        field={@form[:name]}
+        type="text"
+        label="ชื่อบัญชี (Account Name)"
+        placeholder="e.g. My Winner Port"
+      />
+
       <div class="mt-4 pt-4 border-t border-gray-100">
         <label class="block text-sm font-semibold leading-6 text-zinc-800 mb-3">
           เลือกสถานะของบัญชี...
@@ -65,19 +143,41 @@
 
         <div class="grid grid-cols-2 gap-4">
           <label class="cursor-pointer group relative">
-            <input type="radio" name="trading_account[role]" value="follower" class="peer sr-only" checked={@form[:role].value == "follower" || @form[:role].value == nil} />
+            <input
+              type="radio"
+              name="trading_account[role]"
+              value="follower"
+              class="peer sr-only"
+              checked={@form[:role].value == "follower" || @form[:role].value == nil}
+            />
+
             <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
-              <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">👥</div>
+              <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">
+                👥
+              </div>
+
               <span class="font-bold text-gray-900 block">ผู้ตาม (Follower)</span>
+
               <span class="text-xs text-gray-500 mt-1">คัดลอกเทรดจากคนอื่น</span>
             </div>
           </label>
 
           <label class="cursor-pointer group relative">
-            <input type="radio" name="trading_account[role]" value="master" class="peer sr-only" checked={@form[:role].value == "master"} />
+            <input
+              type="radio"
+              name="trading_account[role]"
+              value="master"
+              class="peer sr-only"
+              checked={@form[:role].value == "master"}
+            />
+
             <div class="rounded-xl border-2 border-zinc-200 p-4 hover:border-zinc-400 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 transition-all text-center h-full flex flex-col justify-center items-center">
-              <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">🏆</div>
+              <div class="text-3xl mb-2 grayscale group-hover:grayscale-0 peer-checked:grayscale-0">
+                🏆
+              </div>
+
               <span class="font-bold text-gray-900 block">ผู้นำเทรด (Master)</span>
+
               <span class="text-xs text-gray-500 mt-1">แชร์สัญญาณเทรด</span>
             </div>
           </label>

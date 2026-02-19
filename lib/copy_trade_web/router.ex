@@ -57,8 +57,10 @@ defmodule CopyTradeWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
-      on_mount: [{CopyTradeWeb.UserAuth, :require_authenticated}, {CopyTradeWeb.UserAuth, :mount_current_path}] do
-
+      on_mount: [
+        {CopyTradeWeb.UserAuth, :require_authenticated},
+        {CopyTradeWeb.UserAuth, :mount_current_path}
+      ] do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
 
@@ -68,7 +70,7 @@ defmodule CopyTradeWeb.Router do
 
       # Dashboard now requires an ID
       live "/dashboard/:id", DashboardLive, :show
-      
+
       # Legacy/Fallbacks
       live "/admin", AdminDashboardLive
       live "/masters", MasterBoardLive
@@ -85,6 +87,10 @@ defmodule CopyTradeWeb.Router do
       live "/users/register", UserLive.Registration, :new
       live "/users/log-in", UserLive.Login, :new
       live "/users/log-in/:token", UserLive.Confirmation, :new
+
+      # Public Master pages (ไม่ต้อง login)
+      live "/top-masters", TopMastersLive
+      live "/m/:master_token", MasterProfileLive
     end
 
     post "/users/log-in", UserSessionController, :create

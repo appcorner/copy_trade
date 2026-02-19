@@ -64,14 +64,17 @@
             </div>
             
             <div class="hidden sm:ml-8 sm:flex sm:space-x-8">
-              <a href="/" class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+              <a href="/" data-nav-path="/" class="nav-link inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                 Home
               </a>
+              <a href="/top-masters" data-nav-path="/top-masters" class="nav-link inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                🏆 Top Masters
+              </a>
               <%= if @current_scope do %>
-                <.link navigate={~p"/accounts"} class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                <.link navigate={~p"/accounts"} data-nav-path="/accounts" class="nav-link inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                   My Accounts
                 </.link>
-                <.link navigate={~p"/masters"} class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                <.link navigate={~p"/masters"} data-nav-path="/masters" class="nav-link inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                   Masters
                 </.link>
               <% end %>
@@ -135,11 +138,12 @@
 
       <div class="hidden sm:hidden bg-gray-50 border-t border-gray-200 shadow-inner" id="mobile-menu">
         <div class="space-y-1 pb-3 pt-2">
-          <a href="/" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Home</a>
+          <a href="/" data-nav-path="/" class="nav-link-mobile block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Home</a>
+          <a href="/top-masters" data-nav-path="/top-masters" class="nav-link-mobile block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">🏆 Top Masters</a>
           
           <%= if @current_scope do %>
-            <a href="/accounts" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">My Accounts</a>
-            <a href="/masters" class="block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Masters</a>
+            <a href="/accounts" data-nav-path="/accounts" class="nav-link-mobile block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">My Accounts</a>
+            <a href="/masters" data-nav-path="/masters" class="nav-link-mobile block border-l-4 border-transparent py-2 pl-3 pr-4 text-base font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700">Masters</a>
           <% end %>
         </div>
         

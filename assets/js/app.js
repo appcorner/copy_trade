@@ -147,6 +147,65 @@ Hooks.CumulativeProfitChart = {
   }
 }
 
+Hooks.CopyToClipboard = {
+  mounted() {
+    this.el.addEventListener("click", (e) => {
+      e.preventDefault()
+      const textToCopy = window.location.origin + this.el.dataset.copyText
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const originalText = this.el.textContent
+        this.el.textContent = "✅ Copied!"
+        this.el.classList.add("bg-emerald-600")
+        this.el.classList.remove("bg-indigo-600")
+        setTimeout(() => {
+          this.el.textContent = originalText
+          this.el.classList.remove("bg-emerald-600")
+          this.el.classList.add("bg-indigo-600")
+        }, 2000)
+      }).catch(() => {
+        // Fallback for older browsers
+        const textarea = document.createElement("textarea")
+        textarea.value = textToCopy
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        document.body.removeChild(textarea)
+        this.el.textContent = "✅ Copied!"
+        setTimeout(() => { this.el.textContent = "📋 Copy Link" }, 2000)
+      })
+    })
+  }
+}
+
+Hooks.CopyText = {
+  mounted() {
+    this.el.addEventListener("click", (e) => {
+      e.preventDefault()
+      const textToCopy = this.el.dataset.copyText
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const originalText = this.el.textContent
+        this.el.textContent = "✅ Copied!"
+        this.el.classList.add("bg-emerald-600")
+        this.el.classList.remove("bg-indigo-600")
+        setTimeout(() => {
+          this.el.textContent = originalText
+          this.el.classList.remove("bg-emerald-600")
+          this.el.classList.add("bg-indigo-600")
+        }, 2000)
+      }).catch(() => {
+        const textarea = document.createElement("textarea")
+        textarea.value = textToCopy
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        document.body.removeChild(textarea)
+        this.el.textContent = "✅ Copied!"
+        setTimeout(() => { this.el.textContent = "📋 Copy" }, 2000)
+      })
+    })
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
@@ -157,7 +216,54 @@ const liveSocket = new LiveSocket("/live", Socket, {
 // Show progress bar on live navigation and form submits
 topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" })
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
-window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
+window.addEventListener("phx:page-loading-stop", _info => {
+  topbar.hide()
+  highlightActiveNav()
+})
+
+// Highlight active nav link based on current URL
+function highlightActiveNav() {
+  const path = window.location.pathname
+
+  // Desktop nav
+  document.querySelectorAll(".nav-link").forEach(link => {
+    const navPath = link.dataset.navPath
+    if (!navPath) return
+
+    const isActive = navPath === "/"
+      ? path === "/"
+      : path.startsWith(navPath)
+
+    if (isActive) {
+      link.classList.add("border-indigo-500", "text-gray-900")
+      link.classList.remove("border-transparent", "text-gray-500")
+    } else {
+      link.classList.remove("border-indigo-500", "text-gray-900")
+      link.classList.add("border-transparent", "text-gray-500")
+    }
+  })
+
+  // Mobile nav
+  document.querySelectorAll(".nav-link-mobile").forEach(link => {
+    const navPath = link.dataset.navPath
+    if (!navPath) return
+
+    const isActive = navPath === "/"
+      ? path === "/"
+      : path.startsWith(navPath)
+
+    if (isActive) {
+      link.classList.add("border-indigo-500", "bg-indigo-50", "text-indigo-700")
+      link.classList.remove("border-transparent", "text-gray-500")
+    } else {
+      link.classList.remove("border-indigo-500", "bg-indigo-50", "text-indigo-700")
+      link.classList.add("border-transparent", "text-gray-500")
+    }
+  })
+}
+
+// Run on initial page load
+document.addEventListener("DOMContentLoaded", highlightActiveNav)
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()

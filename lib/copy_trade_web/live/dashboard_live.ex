@@ -275,7 +275,7 @@ defmodule CopyTradeWeb.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="max-w-6xl mx-auto py-8 px-4">
+    <div class="max-w-4xl mx-auto py-2">
       <%= if @role == :master do %>
         <div class="mb-8 flex items-center justify-between">
           <div>
@@ -286,19 +286,19 @@ defmodule CopyTradeWeb.DashboardLive do
               &larr; Back to Accounts
             </.link>
             <h1 class="text-3xl font-bold text-gray-900">🏆 {@current_account.name} (Master)</h1>
-            
+
             <p class="text-gray-500">Managed by {@current_scope.user.name}</p>
           </div>
-          
+
           <div class="text-right">
             <span class="block text-3xl font-bold text-indigo-600">{@follower_count}</span>
             <span class="text-xs text-gray-500 uppercase tracking-wide">ผู้ติดตาม</span>
           </div>
         </div>
-        
+
         <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6">
           <h2 class="text-lg font-bold text-gray-800 mb-3">⚙️ โหมดการทำงาน</h2>
-          
+
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               phx-click="change_mode"
@@ -306,9 +306,9 @@ defmodule CopyTradeWeb.DashboardLive do
               class={"rounded-xl border-2 p-4 text-center transition-all #{if @current_account.copy_mode == "PUBSUB", do: "border-indigo-600 bg-indigo-50", else: "border-gray-200 hover:border-gray-400"}"}
             >
               <div class="text-2xl mb-1">📡</div>
-              
+
               <div class="font-bold text-sm text-gray-900">PUBSUB</div>
-              
+
               <div class="text-xs text-gray-500 mt-1">ส่งสัญญาณให้ทุกคน</div>
             </button>
             <button
@@ -317,9 +317,9 @@ defmodule CopyTradeWeb.DashboardLive do
               class={"rounded-xl border-2 p-4 text-center transition-all #{if @current_account.copy_mode == "1TO1", do: "border-indigo-600 bg-indigo-50", else: "border-gray-200 hover:border-gray-400"}"}
             >
               <div class="text-2xl mb-1">🤝</div>
-              
+
               <div class="font-bold text-sm text-gray-900">1TO1</div>
-              
+
               <div class="text-xs text-gray-500 mt-1">ส่งตรงถึงคู่แท้</div>
             </button>
             <button
@@ -328,13 +328,13 @@ defmodule CopyTradeWeb.DashboardLive do
               class={"rounded-xl border-2 p-4 text-center transition-all #{if @current_account.copy_mode == "RECORD", do: "border-amber-500 bg-amber-50", else: "border-gray-200 hover:border-gray-400"}"}
             >
               <div class="text-2xl mb-1">📝</div>
-              
+
               <div class="font-bold text-sm text-gray-900">RECORD</div>
-              
+
               <div class="text-xs text-gray-500 mt-1">บันทึกผลงานอย่างเดียว</div>
             </button>
           </div>
-          
+
           <%= if @current_account.copy_mode == "RECORD" do %>
             <div class="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
               <span>⚠️</span>
@@ -344,34 +344,34 @@ defmodule CopyTradeWeb.DashboardLive do
             </div>
           <% end %>
         </div>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-xl shadow-lg p-6 text-white relative overflow-hidden">
             <div class="relative z-10">
               <h2 class="text-lg font-medium opacity-90 mb-1">Master Token ของคุณ</h2>
-              
+
               <p class="text-xs opacity-70 mb-3">ส่งรหัสนี้ให้ผู้ติดตาม เพื่อใช้เชื่อมต่อกับคุณ</p>
-              
+
               <div class="bg-white/20 backdrop-blur-sm rounded-lg p-3 font-mono text-base font-bold tracking-wider text-center border border-white/30 select-all">
                 {@master_token}
               </div>
             </div>
-            
+
             <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl">
             </div>
           </div>
-          
+
           <div class="bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <h2 class="text-lg font-bold text-gray-800 mb-2">📡 การเชื่อมต่อ EA</h2>
-            
+
             <p class="text-sm text-gray-500 mb-4">API Key สำหรับ "MasterSenderTCP" EA</p>
-            
+
             <div class="bg-gray-100 rounded-lg p-3 font-mono text-sm text-gray-700 break-all border border-gray-200 select-all">
               {@api_key}
             </div>
           </div>
         </div>
-        
+
         <div
           class="mb-8 bg-white rounded-xl shadow-md border border-gray-200 p-6 mt-8"
           id="profit-chart-container"
@@ -382,10 +382,10 @@ defmodule CopyTradeWeb.DashboardLive do
               <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
                 📈 กำไรสะสม (Cumulative Profit)
               </h3>
-              
+
               <p class="text-sm text-gray-500">แสดงกำไรสะสมจากสัญญาณทั้งหมด</p>
             </div>
-            
+
             <div class="text-right">
               <div class={"text-2xl font-bold #{if @master_total_profit >= 0, do: "text-green-600", else: "text-red-600"}"}>
                 {if @master_total_profit > 0, do: "+", else: ""}{:erlang.float_to_binary(
@@ -393,27 +393,27 @@ defmodule CopyTradeWeb.DashboardLive do
                   decimals: 2
                 )} $
               </div>
-              
+
               <div class="text-xs text-gray-400">{length(@chart_data)} signals</div>
             </div>
           </div>
-          
+
           <div style="height: 300px; position: relative;">
             <canvas id="cumulative-profit-canvas"></canvas>
           </div>
-          
+
           <%= if @chart_data == [] do %>
             <div class="flex items-center justify-center py-8">
               <p class="text-gray-400 text-sm">ยังไม่มีข้อมูลการเทรด</p>
             </div>
           <% end %>
         </div>
-        
+
         <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
           <h3 class="text-lg font-bold text-gray-800">Master Sender EA</h3>
-          
+
           <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Master ที่ต้องการส่งสัญญาณ</p>
-          
+
           <a
             href="/downloads/MasterSenderTCP_V6_2.ex5"
             class="inline-block mt-4 px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition"
@@ -431,30 +431,30 @@ defmodule CopyTradeWeb.DashboardLive do
             &larr; Back to Accounts
           </.link>
           <h1 class="text-3xl font-bold text-gray-900">🚀 {@current_account.name}</h1>
-          
+
           <p class="text-gray-500">Portfolio managed by {@current_scope.user.name}</p>
         </div>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div class="md:col-span-2 bg-white rounded-xl shadow-md border border-gray-200 p-6">
             <h2 class="text-xl font-bold text-gray-800 mb-4">🔌 สถานะการเชื่อมต่อ</h2>
-            
+
             <%= if @current_master do %>
               <div class="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-4">
                 <div class="flex items-center">
                   <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-2xl mr-4">
                     🏆
                   </div>
-                  
+
                   <div>
                     <p class="text-sm text-green-800 font-bold">เชื่อมต่อกับ Master แล้ว</p>
-                    
+
                     <p class="text-lg font-bold text-gray-900">{@current_master.name}</p>
-                    
+
                     <p class="text-xs text-gray-500">{@current_master.master_token}</p>
                   </div>
                 </div>
-                
+
                 <button
                   phx-click="unfollow"
                   data-confirm="ยืนยันการเลิกติดตาม?"
@@ -466,14 +466,14 @@ defmodule CopyTradeWeb.DashboardLive do
             <% else %>
               <div class="flex items-center bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                 <div class="text-2xl mr-4">⚠️</div>
-                
+
                 <div>
                   <p class="text-sm text-yellow-800 font-bold">ยังไม่ได้เชื่อมต่อ</p>
-                  
+
                   <p class="text-xs text-gray-600">คุณยังไม่มี Master ที่ติดตาม</p>
                 </div>
               </div>
-              
+
               <.link
                 navigate="/masters"
                 class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm w-full"
@@ -482,22 +482,22 @@ defmodule CopyTradeWeb.DashboardLive do
               </.link>
             <% end %>
           </div>
-          
+
           <div class="bg-indigo-600 rounded-xl p-6 text-white shadow-lg flex flex-col justify-center">
             <div class="text-indigo-200 text-sm font-medium uppercase tracking-wider mb-1">
               กำไรรวม (Total Profit)
             </div>
-            
+
             <div class="text-4xl font-bold">
               $ {:erlang.float_to_binary(@total_profit, decimals: 2)}
             </div>
-            
+
             <div class="mt-2 text-xs text-indigo-300">
               อัปเดตล่าสุด: {format_bkk(DateTime.utc_now(), "%H:%M")}
             </div>
           </div>
         </div>
-        
+
         <div
           class="mb-8 bg-white rounded-xl shadow-md border border-gray-200 p-6"
           id="profit-chart-container"
@@ -508,32 +508,32 @@ defmodule CopyTradeWeb.DashboardLive do
               <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
                 📈 กำไรสะสม (Cumulative Profit)
               </h3>
-              
+
               <p class="text-sm text-gray-500">แสดงกำไรสะสมจากการเทรดทั้งหมด</p>
             </div>
-            
+
             <div class="text-right">
               <div class={"text-2xl font-bold #{if @total_profit >= 0, do: "text-green-600", else: "text-red-600"}"}>
                 {if @total_profit > 0, do: "+", else: ""}{:erlang.float_to_binary(@total_profit,
                   decimals: 2
                 )} $
               </div>
-              
+
               <div class="text-xs text-gray-400">{length(@chart_data)} trades</div>
             </div>
           </div>
-          
+
           <div style="height: 300px; position: relative;">
             <canvas id="cumulative-profit-canvas"></canvas>
           </div>
-          
+
           <%= if @chart_data == [] do %>
             <div class="absolute inset-0 flex items-center justify-center">
               <p class="text-gray-400 text-sm">ยังไม่มีข้อมูลการเทรด</p>
             </div>
           <% end %>
         </div>
-        
+
         <div class="mb-12">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -543,7 +543,7 @@ defmodule CopyTradeWeb.DashboardLive do
               </span>
             </h3>
           </div>
-          
+
           <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-300">
               <thead class="bg-gray-50">
@@ -551,36 +551,36 @@ defmodule CopyTradeWeb.DashboardLive do
                   <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
                     Symbol
                   </th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                     Lot (M → S)
                   </th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                     Price / SL-TP
                   </th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Status</th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Time</th>
-                  
+
                   <th class="px-3 py-3.5 text-right text-sm font-semibold text-gray-900">
                     Profit ($)
                   </th>
                 </tr>
               </thead>
-              
+
               <tbody class="divide-y divide-gray-200 bg-white">
                 <%= for pair <- @active_pairs do %>
                   <tr class="hover:bg-gray-50 transition">
                     <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
                       <div class="font-bold text-gray-900">{pair.master_trade.symbol}</div>
-                      
+
                       <div class="text-xs text-gray-500">#{pair.slave_ticket}</div>
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                       <div class="flex items-center gap-2">
                         <span class={"font-bold text-xs " <> if(pair.master_trade.type == "BUY", do: "text-green-600", else: "text-red-600")}>
@@ -600,7 +600,7 @@ defmodule CopyTradeWeb.DashboardLive do
                         <% end %>
                       </div>
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       <div class="flex items-center gap-1">
                         <span class="text-gray-400">{pair.master_trade.volume || "-"}</span>
@@ -621,31 +621,31 @@ defmodule CopyTradeWeb.DashboardLive do
                         <span class="font-bold text-gray-900">{pair.slave_volume || "..."}</span>
                       </div>
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                       <div class="font-medium text-gray-900">{pair.open_price}</div>
-                      
+
                       <div class="text-xs flex gap-2 mt-0.5">
                         <%= if pair.master_trade.sl && pair.master_trade.sl > 0 do %>
                           <span class="text-red-600 font-medium">SL: {pair.master_trade.sl}</span>
                         <% end %>
-                        
+
                         <%= if pair.master_trade.tp && pair.master_trade.tp > 0 do %>
                           <span class="text-green-600 font-medium">TP: {pair.master_trade.tp}</span>
                         <% end %>
                       </div>
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                       <span class={"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium #{if pair.status == "OPEN", do: "bg-blue-50 text-blue-700", else: "bg-gray-100 text-gray-600"}"}>
                         {pair.status}
                       </span>
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-400">
                       {format_bkk(pair.inserted_at, "%H:%M:%S")}
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-right font-mono font-bold">
                       <%!-- เรียกใช้ Context ที่เราเตรียมไว้เพื่อคำนวณกำไรสดๆ --%> <% floating_pl =
                         TradePairContext.calculate_floating_profit(pair, @prices) %>
@@ -657,7 +657,7 @@ defmodule CopyTradeWeb.DashboardLive do
                     </td>
                   </tr>
                 <% end %>
-                
+
                 <%= if @active_pairs == [] do %>
                   <tr>
                     <td colspan="6" class="text-center py-8 text-gray-400">ไม่มีออเดอร์ที่ถืออยู่</td>
@@ -667,10 +667,10 @@ defmodule CopyTradeWeb.DashboardLive do
             </table>
           </div>
         </div>
-        
+
         <div class="mb-8">
           <h3 class="text-lg font-bold text-gray-900 mb-4">📜 ประวัติการเทรดล่าสุด</h3>
-          
+
           <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-300">
               <thead class="bg-gray-50">
@@ -678,54 +678,54 @@ defmodule CopyTradeWeb.DashboardLive do
                   <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">
                     Symbol
                   </th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Type</th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                     Open Price
                   </th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                     Close Price
                   </th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Lot</th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Profit</th>
-                  
+
                   <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Time</th>
                 </tr>
               </thead>
-              
+
               <tbody class="divide-y divide-gray-200 bg-white">
                 <%= for pair <- @closed_pairs do %>
                   <tr>
                     <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
                       {pair.master_trade.symbol}
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                       <span class={"text-xs font-bold #{if pair.master_trade.type == "BUY", do: "text-green-600", else: "text-red-600"}"}>
                         {pair.master_trade.type}
                       </span>
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       {pair.open_price}
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       {pair.close_price}
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       {pair.slave_volume}
                     </td>
-                    
+
                     <td class={"whitespace-nowrap px-3 py-4 text-sm font-bold #{if pair.profit >= 0, do: "text-green-600", else: "text-red-600"}"}>
                       {if pair.profit > 0, do: "+", else: ""}{pair.profit} $
                     </td>
-                    
+
                     <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       {format_bkk(pair.updated_at, "%d/%m %H:%M")}
                     </td>
@@ -735,12 +735,12 @@ defmodule CopyTradeWeb.DashboardLive do
             </table>
           </div>
         </div>
-        
+
         <div class="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
           <h3 class="text-lg font-bold text-gray-800">Slave Copy EA</h3>
-          
+
           <p class="text-sm text-gray-500 mt-2">สำหรับบัญชี Follower ที่ต้องการคัดลอกไม้</p>
-          
+
           <a
             href="/downloads/SlaveTCP_V6_2.ex5"
             class="inline-block mt-4 px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition"

@@ -349,6 +349,33 @@ defmodule CopyTrade.Accounts do
     |> Repo.all()
   end
 
+  # ดึงรายชื่อ Master เฉพาะโหมด PUBSUB พร้อม filter ชื่อ
+  def list_pubsub_masters(search_name \\ nil) do
+    query =
+      from(t in TradingAccount,
+        where: t.role == "master" and t.is_active == true and t.copy_mode == "PUBSUB",
+        left_join: f in TradingAccount,
+        on: f.following_id == t.id,
+        group_by: t.id,
+        select: %{
+          master_id: t.id,
+          name: t.name,
+          token: t.master_token,
+          follower_count: count(f.id)
+        }
+      )
+
+    query =
+      if search_name && search_name != "" do
+        search = "%#{search_name}%"
+        from(t in query, where: ilike(t.name, ^search))
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
   # ฟังก์ชันหา Master จาก Token (ใช้ตอน Subscribe)
   def get_master_account_by_token(token) do
     Repo.get_by(TradingAccount, master_token: token)
